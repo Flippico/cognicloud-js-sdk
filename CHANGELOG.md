@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — 2026-10-20
+
+### Added
+
+- PDFs and images in messages. `pdfPart(data, filename?)` and `imagePart(data, type)` build chat parts; `inputFile(data, filename?)` and `inputImage(data, type)` build Responses API parts; `textPart(text)` and `inputText(text)` build text. Each file becomes a base64 data URL.
+- `maxFileBytes` (10 MB, as the gateway enforces) and a check before sending: a larger file throws `CogniCloudError` with code `file_too_large` and nothing is sent.
+- `toBase64(bytes)`, and the `ContentPart`, `InputPart`, `TextPart`, `FilePart` and `ImagePart` types.
+
+### Changed
+
+- `Message.content` is text or an array of parts (up to 20), and Responses `input` messages take `InputPart`s.
+
 ## 0.2.0 — 2026-10-20
 
 Version 0.1.0 could not reach a live gateway. This release matches the AI Gateway as it is deployed.

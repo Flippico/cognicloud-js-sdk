@@ -141,3 +141,35 @@ describe("CogniCloud endpoints", () => {
     await expect(cc.endpoints.get("e1")).rejects.toMatchObject({ status: 0, code: "network_error" })
   })
 })
+
+describe("files", () => {
+  it("builds a PDF part as a base64 data URL with its file name", async () => {
+    const { pdfPart, textPart } = await import("../src/index.js")
+    const part = pdfPart(new TextEncoder().encode("%PDF-1.4"), "cv.pdf")
+    expect(part).toEqual({ type: "file", file: { filename: "cv.pdf", file_data: "data:application/pdf;base64,JVBERi0xLjQ=" } })
+    expect(textPart("Match this CV.")).toEqual({ type: "text", text: "Match this CV." })
+  })
+
+  it("builds image and Responses parts", async () => {
+    const { imagePart, inputFile, inputImage } = await import("../src/index.js")
+    const bytes = new Uint8Array([137, 80, 78, 71])
+    expect(imagePart(bytes, "image/png").image_url.url).toBe("data:image/png;base64,iVBORw==")
+    expect(inputImage(bytes, "image/png").image_url).toBe("data:image/png;base64,iVBORw==")
+    expect(inputFile(new Uint8Array([1]), "a.pdf")).toMatchObject({ type: "input_file", filename: "a.pdf" })
+  })
+
+  it("refuses a file over the gateway's 10 MB limit before sending anything", async () => {
+    const { pdfPart, maxFileBytes } = await import("../src/index.js")
+    expect(() => pdfPart(new Uint8Array(maxFileBytes + 1))).toThrow(CogniCloudError)
+  })
+
+  it("sends a message with a PDF part to the endpoint unchanged", async () => {
+    const { pdfPart, textPart } = await import("../src/index.js")
+    const { fetch, calls } = fakeFetch(Response.json(answer))
+    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch })
+    const body = { messages: [{ role: "user", content: [textPart("Match this CV."), pdfPart(new Uint8Array([1, 2, 3]), "cv.pdf")] }] }
+    await client.invoke(body)
+    expect(JSON.parse(calls[0].init.body as string)).toEqual(body)
+  })
+})
+

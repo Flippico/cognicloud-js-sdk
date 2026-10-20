@@ -63,12 +63,28 @@ export type InvokeResponse = {
 
 export type Body = Record<string, unknown>
 
-/** A plain-text message. Images, files and tool calls are not accepted. */
-export type Message = { role: "system" | "developer" | "user" | "assistant"; content: string }
+export type Role = "system" | "developer" | "user" | "assistant"
+
+/** A text part of a chat message. */
+export type TextPart = { type: "text"; text: string }
+/** A PDF, as a base64 data URL in `file_data`. The gateway accepts files up to 10 MB decoded. */
+export type FilePart = { type: "file"; file: { filename?: string; file_data: string } }
+/** An image, as a base64 data URL. PNG, JPEG, WebP and GIF are accepted. */
+export type ImagePart = { type: "image_url"; image_url: { url: string } }
+export type ContentPart = TextPart | FilePart | ImagePart
+
+/** A chat message: plain text, or text, PDFs and images as parts (up to 20). Tool calls are not accepted. */
+export type Message = { role: Role; content: string | ContentPart[] }
+
+/** Responses API input parts, for an endpoint without a deployment. */
+export type InputText = { type: "input_text"; text: string }
+export type InputFile = { type: "input_file"; filename?: string; file_data: string }
+export type InputImage = { type: "input_image"; image_url: string }
+export type InputPart = InputText | InputFile | InputImage
 
 /** For an endpoint without a deployment, which uses the Responses API. The endpoint chooses the model. */
 export type ResponsesBody = {
-  input: string | Message[]
+  input: string | Array<{ role: Role; content: string | InputPart[] }>
   max_output_tokens?: number
   temperature?: number
   top_p?: number

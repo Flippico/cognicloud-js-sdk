@@ -44,6 +44,22 @@ Every model answers in the same shape: `output` (text), `finishReason` (`stop`, 
 
 `invoke` is never retried, because a retried call can be billed twice.
 
+## Send a PDF or an image
+
+```ts
+import { EndpointClient, pdfPart, textPart } from "@cognicloud/sdk"
+import { readFile } from "node:fs/promises"
+
+const endpoint = new EndpointClient({ url: process.env.COGNICLOUD_ENDPOINT_URL!, credential: process.env.COGNICLOUD_KEY! })
+const cv = await readFile("cv.pdf")
+
+const { output } = await endpoint.invoke({
+  messages: [{ role: "user", content: [textPart("Match this CV to the job."), pdfPart(cv, "cv.pdf")] }],
+})
+```
+
+Files go up to 10 MB. The gateway reserves a quarter of a file's size in tokens before the call, so an endpoint's monthly limit must cover it.
+
 ## Manage endpoints
 
 Management calls use the signed-in person's Amadeus session token, sent as `Authorization: Bearer`, and the workspace (`tenant`, default `cognicloud`), sent as the `tenant_id` header.
