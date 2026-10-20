@@ -10,7 +10,10 @@ export type HttpConfig = {
 
 export type RequestOptions = {
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"
-  path: string
+  /** Relative to the base URL. */
+  path?: string
+  /** A whole address, used instead of the base URL and `path`. */
+  url?: string
   headers?: Record<string, string>
   body?: unknown
   /** Calls that bill or change state are sent once; a retry could repeat them. */
@@ -28,7 +31,7 @@ function baseOf(url: string) {
 }
 
 export async function send<T>(config: HttpConfig, options: RequestOptions): Promise<T> {
-  const url = `${baseOf(config.baseUrl)}${options.path}`
+  const url = options.url ?? `${baseOf(config.baseUrl)}${options.path ?? ""}`
   const retries = options.retry === false ? 0 : config.maxRetries
   for (let attempt = 0; ; attempt++) {
     let response: Response

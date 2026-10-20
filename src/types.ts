@@ -62,3 +62,28 @@ export type InvokeResponse = {
 }
 
 export type Body = Record<string, unknown>
+
+/** A plain-text message. Images, files and tool calls are not accepted. */
+export type Message = { role: "system" | "developer" | "user" | "assistant"; content: string }
+
+/** For an endpoint without a deployment, which uses the Responses API. The endpoint chooses the model. */
+export type ResponsesBody = {
+  input: string | Message[]
+  max_output_tokens?: number
+  temperature?: number
+  top_p?: number
+  stream?: false
+}
+
+/** For an endpoint with an Azure deployment, which uses Chat Completions. The endpoint chooses the model. */
+export type ChatBody = {
+  messages: Message[]
+  max_completion_tokens?: number
+  max_tokens?: number
+  temperature?: number
+  top_p?: number
+  stream?: false
+}
+
+/** What an endpoint without a request mapping accepts. A mapped endpoint takes the fields its mapping names (`Body`). */
+export type InvokeBody = ResponsesBody | ChatBody

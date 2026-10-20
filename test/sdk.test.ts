@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CogniCloud, CogniCloudError, EndpointClient } from "../src/index.js"
+import { CogniCloud, CogniCloudError, EndpointClient, encodeTenant } from "../src/index.js"
 
 type Call = { url: string; init: RequestInit }
 
@@ -27,7 +27,7 @@ const endpoint = {
   name: "Support bot",
   providerId: "azure-openai",
   model: "gpt-5-mini",
-  url: "https://api.cognicloud.dev/v1/invoke/e1",
+  url: "https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1",
   credentialPrefix: "cc_live_1234",
   tokenLimit: 1000,
   tokensUsed: 0,
@@ -42,7 +42,7 @@ describe("EndpointClient", () => {
     const client = new EndpointClient({ endpointId: "e1", credential: "cc_live_secret", fetch })
     const result = await client.invoke({ input: "Hi" })
     expect(result).toEqual(answer)
-    expect(calls[0].url).toBe("https://api.cognicloud.dev/v1/invoke/e1")
+    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
     expect(calls[0].init.method).toBe("POST")
     expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer cc_live_secret")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: "Hi" })
@@ -69,7 +69,21 @@ describe("EndpointClient", () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
     const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch, baseUrl: "https://staging.example/v1/" })
     await client.invoke({ input: "Hi" })
-    expect(calls[0].url).toBe("https://staging.example/v1/invoke/e1")
+    expect(calls[0].url).toBe("https://staging.example/v1/invoke/636f676e69636c6f7564/e1")
+  })
+
+  it("names the endpoint's tenant in the address, as hex of its name", async () => {
+    expect(encodeTenant("cognicloud")).toBe("636f676e69636c6f7564")
+    const { fetch, calls } = fakeFetch(Response.json(answer))
+    await new EndpointClient({ endpointId: "e1", tenant: "acme", credential: "k", fetch }).invoke({ input: "Hi" })
+    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/61636d65/e1")
+  })
+
+  it("calls the invoke URL CogniCloud issued, as it is", async () => {
+    const { fetch, calls } = fakeFetch(Response.json(answer))
+    const client = new EndpointClient({ url: endpoint.url, credential: "k", fetch })
+    await client.invoke({ input: [{ role: "system", content: "Be brief." }, { role: "user", content: "Hi" }], max_output_tokens: 64 })
+    expect(calls[0].url).toBe(endpoint.url)
   })
 })
 
@@ -79,14 +93,16 @@ describe("CogniCloud endpoints", () => {
     const cc = new CogniCloud({ token: "amadeus-session", locale: "pl", fetch })
     const created = await cc.endpoints.create({ name: "Support bot", providerId: "azure-openai", model: "gpt-5-mini", tokenLimit: 1000 })
     expect(created.credential.secret).toBe("cc_live_new")
-    expect((calls[0].init.headers as Record<string, string>)["x-amadeus-token"]).toBe("amadeus-session")
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer amadeus-session")
+    expect((calls[0].init.headers as Record<string, string>).tenant_id).toBe("cognicloud")
     expect((calls[0].init.headers as Record<string, string>)["accept-language"]).toBe("pl")
   })
 
   it("updates only the fields it is given", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ ...endpoint, tokenLimit: 5000 }))
-    const cc = new CogniCloud({ token: "t", fetch })
+    const cc = new CogniCloud({ token: "t", tenant: "acme", fetch })
     await cc.endpoints.update("e1", { tokenLimit: 5000 })
+    expect((calls[0].init.headers as Record<string, string>).tenant_id).toBe("acme")
     expect(calls[0].init.method).toBe("PATCH")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ tokenLimit: 5000 })
   })
@@ -96,7 +112,7 @@ describe("CogniCloud endpoints", () => {
     const cc = new CogniCloud({ token: "t", fetch })
     const days = await cc.endpoints.dailyUsage("e1", { from: "2026-10-01", to: "2026-10-20" })
     expect(days).toHaveLength(1)
-    expect(calls[0].url).toBe("https://api.cognicloud.dev/v1/endpoints/e1/usage/daily?from=2026-10-01&to=2026-10-20")
+    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/endpoints/e1/usage/daily?from=2026-10-01&to=2026-10-20")
   })
 
   it("deletes an endpoint without expecting a body", async () => {

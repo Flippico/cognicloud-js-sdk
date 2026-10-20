@@ -22,8 +22,23 @@ const endpoint = new EndpointClient({
   credential: process.env.COGNICLOUD_KEY!,
 })
 
-const { output, finishReason, usage } = await endpoint.invoke({ input: "Summarise this ticket in one sentence." })
+const { output, finishReason, usage } = await endpoint.invoke({
+  input: [
+    { role: "system", content: "Answer in one sentence." },
+    { role: "user", content: "Summarise this ticket." },
+  ],
+  max_output_tokens: 256,
+})
 ```
+
+The invoke address is `<baseUrl>/invoke/<tenant>/<endpointId>`. The endpoint belongs to the platform tenant, `cognicloud`, unless you pass `tenant`. You can also pass the address CogniCloud issued for the endpoint (`endpoint.url`) as `url` instead of `endpointId`.
+
+Without a request mapping the body goes to the provider as it is, and only plain-text messages are accepted:
+
+- An endpoint without a deployment uses the Responses API: `input` (a string or `system`/`developer`/`user`/`assistant` messages), `max_output_tokens`, `temperature`, `top_p`.
+- An endpoint with an Azure deployment uses Chat Completions: `messages`, `max_completion_tokens` (or `max_tokens`), `temperature`, `top_p`.
+
+`instructions`, `store`, `text.format` (structured outputs), images, files, tools and streaming are refused with `400 invalid_request`. Put instructions in a `system` message. Some models refuse `temperature`; the gateway then answers `502 provider_refused`. The endpoint always chooses the model.
 
 Every model answers in the same shape: `output` (text), `finishReason` (`stop`, `length`, `content_filter`, `other`, or `null`) and `usage` (token counts).
 
@@ -31,7 +46,7 @@ Every model answers in the same shape: `output` (text), `finishReason` (`stop`, 
 
 ## Manage endpoints
 
-Management calls use the signed-in person's Amadeus session token.
+Management calls use the signed-in person's Amadeus session token, sent as `Authorization: Bearer`, and the workspace (`tenant`, default `cognicloud`), sent as the `tenant_id` header.
 
 ```ts
 import { CogniCloud } from "@cognicloud/sdk"
@@ -76,19 +91,15 @@ try {
 
 | Option | Default | |
 | --- | --- | --- |
-| `baseUrl` | `https://api.cognicloud.dev/v1` | Point at another environment. |
+| `baseUrl` | `https://cognicloud.flippi.co/api/v1/ai-gateway` | Point at another environment. |
 | `locale` | `"en"` | `Accept-Language` for localised responses. |
 | `timeoutMs` | `30000` | Per request. |
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-## Version 0.1.0
+## Changes
 
-- `EndpointClient.invoke`: call an endpoint with its credential.
-- `CogniCloud.endpoints`: create, list, get, update, delete, rotate, usage and daily usage.
-- `CogniCloudError` with the HTTP status and CogniCloud's error code.
-
-Agents, browser, scraping, vault and activity are planned for later versions.
+See [CHANGELOG.md](./CHANGELOG.md). Agents, browser, scraping, vault and activity are planned for later versions.
 
 Source: https://github.com/Flippico/cognicloud-js-sdk
 

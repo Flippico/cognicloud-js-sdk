@@ -7,13 +7,14 @@ import type {
   DailyUsageRange,
   Endpoint,
   EndpointUsage,
+  InvokeBody,
   InvokeResponse,
   UpdateEndpointInput,
 } from "./types.js"
 
 /** Options shared by every client. */
 export type ClientOptions = {
-  /** Point at another environment. Default `https://api.cognicloud.dev/v1`. */
+  /** Point at another environment. Default `https://cognicloud.flippi.co/api/v1/ai-gateway`. */
   baseUrl?: string
   /** `Accept-Language` for localised responses. Default `"en"`. */
   locale?: string
@@ -26,17 +27,38 @@ export type ClientOptions = {
 }
 
 export type EndpointClientOptions = ClientOptions & {
-  endpointId: string
   credential: string
-}
+} & (
+    | {
+        /** The endpoint's invoke URL as CogniCloud issued it (`endpoint.url`). Takes precedence over `baseUrl`. */
+        url: string
+        endpointId?: never
+        tenant?: never
+      }
+    | {
+        endpointId: string
+        /** The tenant the endpoint belongs to. Default `"cognicloud"`, the platform tenant. */
+        tenant?: string
+        url?: never
+      }
+  )
 
 export type CogniCloudOptions = ClientOptions & {
-  /** The signed-in person's Amadeus session token, sent as `x-amadeus-token`. */
+  /** The signed-in person's Amadeus session token, sent as `Authorization: Bearer`. */
   token: string
+  /** The tenant (workspace) to manage, sent as the `tenant_id` header. Default `"cognicloud"`. */
+  tenant?: string
+}
+
+const defaultTenant = "cognicloud"
+
+/** How an invoke URL names its tenant: the tenant's name as UTF-8, in lowercase hex. */
+export function encodeTenant(tenant: string): string {
+  return Array.from(new TextEncoder().encode(tenant), (byte) => byte.toString(16).padStart(2, "0")).join("")
 }
 
 const defaults = {
-  baseUrl: "https://api.cognicloud.dev/v1",
+  baseUrl: "https://cognicloud.flippi.co/api/v1/ai-gateway",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -54,21 +76,27 @@ function httpConfig(options: ClientOptions): HttpConfig {
 
 /** Calls one AI Gateway endpoint with its own credential. */
 export class EndpointClient {
-  readonly endpointId: string
+  /** The address every invoke is sent to. */
+  readonly url: string
   private readonly credential: string
   private readonly config: HttpConfig
 
   constructor(options: EndpointClientOptions) {
-    this.endpointId = options.endpointId
     this.credential = options.credential
     this.config = httpConfig(options)
+    this.url =
+      options.url ??
+      `${this.config.baseUrl.replace(/\/+$/, "")}/invoke/${encodeTenant(options.tenant ?? defaultTenant)}/${encodeURIComponent(options.endpointId)}`
   }
 
-  /** Sends the body through the endpoint's request mapping and returns the answer in one shape. */
-  invoke(body: Body): Promise<InvokeResponse> {
+  /**
+   * Sends the body through the endpoint's request mapping and returns the answer in one shape. Without a mapping the body goes to the
+   * provider as it is: plain-text messages only, no images, tools or streaming.
+   */
+  invoke(body: InvokeBody | Body): Promise<InvokeResponse> {
     return send<InvokeResponse>(this.config, {
       method: "POST",
-      path: `/invoke/${encodeURIComponent(this.endpointId)}`,
+      url: this.url,
       headers: { authorization: `Bearer ${this.credential}` },
       body,
       retry: false,
@@ -81,9 +109,9 @@ export class EndpointsApi {
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
-  constructor(config: HttpConfig, token: string) {
+  constructor(config: HttpConfig, token: string, tenant: string = defaultTenant) {
     this.config = config
-    this.headers = { "x-amadeus-token": token }
+    this.headers = { authorization: `Bearer ${token}`, tenant_id: tenant }
   }
 
   create(input: CreateEndpointInput): Promise<CreatedEndpoint> {
@@ -151,6 +179,6 @@ export class CogniCloud {
   readonly endpoints: EndpointsApi
 
   constructor(options: CogniCloudOptions) {
-    this.endpoints = new EndpointsApi(httpConfig(options), options.token)
+    this.endpoints = new EndpointsApi(httpConfig(options), options.token, options.tenant)
   }
 }
