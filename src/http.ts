@@ -1,0 +1,74 @@
+import { CogniCloudError } from "./errors.js"
+
+export type HttpConfig = {
+  baseUrl: string
+  locale: string
+  timeoutMs: number
+  maxRetries: number
+  fetch: typeof fetch
+}
+
+export type RequestOptions = {
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"
+  path: string
+  headers?: Record<string, string>
+  body?: unknown
+  /** Calls that bill or change state are sent once; a retry could repeat them. */
+  retry?: boolean
+}
+
+const retryableStatuses = new Set([429, 500, 502, 503, 504])
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function baseOf(url: string) {
+  return url.replace(/\/+$/, "")
+}
+
+export async function send<T>(config: HttpConfig, options: RequestOptions): Promise<T> {
+  const url = `${baseOf(config.baseUrl)}${options.path}`
+  const retries = options.retry === false ? 0 : config.maxRetries
+  for (let attempt = 0; ; attempt++) {
+    let response: Response
+    try {
+      response = await config.fetch(url, {
+        method: options.method,
+        headers: {
+          accept: "application/json",
+          "accept-language": config.locale,
+          ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+          ...options.headers,
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: AbortSignal.timeout(config.timeoutMs),
+      })
+    } catch (error) {
+      if (attempt < retries) {
+        await sleep(250 * 2 ** attempt)
+        continue
+      }
+      const timedOut = error instanceof Error && error.name === "TimeoutError"
+      throw new CogniCloudError(
+        0,
+        timedOut ? "timeout" : "network_error",
+        timedOut ? "The request timed out." : "The request could not reach CogniCloud."
+      )
+    }
+
+    if (response.ok) {
+      return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
+    }
+    if (retryableStatuses.has(response.status) && attempt < retries) {
+      await sleep(250 * 2 ** attempt)
+      continue
+    }
+    const body = (await response.json().catch(() => ({}))) as { error?: unknown; message?: unknown }
+    throw new CogniCloudError(
+      response.status,
+      typeof body.error === "string" ? body.error : "http_error",
+      typeof body.message === "string" ? body.message : response.statusText || "The request failed."
+    )
+  }
+}
