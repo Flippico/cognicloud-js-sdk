@@ -103,3 +103,53 @@ export type ChatBody = {
 
 /** What an endpoint without a request mapping accepts. A mapped endpoint takes the fields its mapping names (`Body`). */
 export type InvokeBody = ResponsesBody | ChatBody
+
+export type BrowserScreen = { width: number; height: number }
+
+/** A session is `active` until it stops; then its `cdpUrl` and `liveUrl` are `null`. */
+export type BrowserSession = {
+  id: string
+  status: "active" | "stopped"
+  /** WebSocket for Playwright, Puppeteer or any CDP client. `null` once stopped. */
+  cdpUrl: string | null
+  /** A page where people can watch the session. `null` once stopped. */
+  liveUrl: string | null
+  profileId: string | null
+  proxyCountryCode: string | null
+  solveCaptchas: boolean
+  recording: boolean
+  screen: BrowserScreen | null
+  timeoutAt: string
+  startedAt: string
+  finishedAt: string | null
+}
+
+export type BrowserSessionList = {
+  items: BrowserSession[]
+  concurrency: { active: number; limit: number }
+}
+
+export type CreateBrowserSessionInput = {
+  /** Profiles are not available yet; leave unset or `null`. */
+  profileId?: string | null
+  /** Proxy countries are not available yet; leave unset or `null`. */
+  proxyCountryCode?: string | null
+  /** Minutes until the session stops. Default 15; at most 240. */
+  timeoutMinutes?: number
+  /** Screen sizes are not available yet; leave unset or `null`. */
+  screen?: BrowserScreen | null
+  /** Captcha solving is not available yet; leave unset or `false`. */
+  solveCaptchas?: boolean
+  /** Recording is not available yet; leave unset or `false`. */
+  recording?: boolean
+}
+
+export type ProxyCountry = { code: string; name: string }
+
+export type BrowserProfile = {
+  id: string
+  name: string
+  cookieDomains: string[]
+  lastUsedAt: string | null
+  createdAt: string
+}

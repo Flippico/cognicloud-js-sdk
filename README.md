@@ -2,7 +2,7 @@
 
 Call CogniCloud AI Gateway endpoints and manage them from Node.js, Bun, Deno and edge runtimes.
 
-> Preview. The first version covers AI Gateway endpoints. Agents, browser, scraping, vault and activity are not included yet.
+> Preview. The first version covers AI Gateway endpoints. Browser sessions are included; agents, scraping, vault and activity are not included yet.
 
 ## Install
 
@@ -115,7 +115,7 @@ try {
 
 ## Changes
 
-See [CHANGELOG.md](./CHANGELOG.md). Agents, browser, scraping, vault and activity are planned for later versions.
+See [CHANGELOG.md](./CHANGELOG.md). Agents, scraping, vault and activity are planned for later versions.
 
 Source: https://github.com/Flippico/cognicloud-js-sdk
 

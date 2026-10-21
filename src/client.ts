@@ -1,3 +1,4 @@
+import { BrowserApi } from "./browser.js"
 import { send, type HttpConfig } from "./http.js"
 import type {
   Body,
@@ -48,6 +49,8 @@ export type CogniCloudOptions = ClientOptions & {
   token: string
   /** The tenant (workspace) to manage, sent as the `tenant_id` header. Default `"cognicloud"`. */
   tenant?: string
+  /** The browser service's base. Default `https://cognicloud.flippi.co/api/v1/browser`. */
+  browserBaseUrl?: string
 }
 
 const defaultTenant = "cognicloud"
@@ -59,6 +62,7 @@ export function encodeTenant(tenant: string): string {
 
 const defaults = {
   baseUrl: "https://cognicloud.flippi.co/api/v1/ai-gateway",
+  browserBaseUrl: "https://cognicloud.flippi.co/api/v1/browser",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -174,11 +178,14 @@ export class EndpointsApi {
   }
 }
 
-/** Manage CogniCloud resources. This first version covers AI Gateway endpoints. */
+/** Manage CogniCloud resources: AI Gateway endpoints and browser sessions. */
 export class CogniCloud {
   readonly endpoints: EndpointsApi
+  readonly browser: BrowserApi
 
   constructor(options: CogniCloudOptions) {
     this.endpoints = new EndpointsApi(httpConfig(options), options.token, options.tenant)
+    const browserConfig = { ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }
+    this.browser = new BrowserApi(browserConfig, options.token, options.tenant ?? defaultTenant)
   }
 }

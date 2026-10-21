@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- Browser sessions: `cognicloud.browser.sessions` starts, lists, reads and stops sessions that agents drive over the Chrome DevTools Protocol. `browser.countries()` and `browser.profiles()` return empty lists until those features exist. Set `browserBaseUrl` to point at another environment; the default is `https://cognicloud.flippi.co/api/v1/browser`.
+
 ## 0.3.0 — 2026-10-20
 
 ### Added
