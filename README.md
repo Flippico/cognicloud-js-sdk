@@ -86,6 +86,31 @@ await cc.endpoints.delete(endpoint.id)
 
 Also available: `cc.endpoints.list()` and `cc.endpoints.get(id)`.
 
+## Browser sessions
+
+A browser session is a Chrome that your agent drives over the Chrome DevTools Protocol. Start one, connect your automation library to its `cdpUrl`, and stop it when you are done:
+
+```ts
+import { CogniCloud } from "@cognicloud/sdk"
+import { chromium } from "playwright"
+
+const cc = new CogniCloud({ token: amadeusToken })
+
+const session = await cc.browser.sessions.create({ timeoutMinutes: 15 })
+const browser = await chromium.connectOverCDP(session.cdpUrl!)
+const page = browser.contexts()[0].pages()[0] ?? (await browser.contexts()[0].newPage())
+await page.goto("https://example.com")
+
+await browser.close()
+await cc.browser.sessions.stop(session.id)
+```
+
+- `timeoutMinutes` is 1 to 240 and defaults to 15. The session stops by itself when the timeout passes.
+- Closing the CDP connection does not stop the session. Call `stop` as above.
+- `status` is `active` or `stopped`. `cdpUrl` and `liveUrl` are `null` once the session has stopped. `liveUrl` is a page where a person can watch and take over the browser.
+- `sessions.list()` returns the workspace's sessions, newest first, with `concurrency: { active, limit }`. A start beyond the limit fails with `429` and code `concurrency_limit`.
+- Proxy countries, profiles, screen sizes, captcha solving and recording are not available yet. `countries()` and `profiles()` return empty lists, and a start that asks for one of those options fails with `422`.
+
 ## Errors
 
 ```ts
@@ -112,6 +137,8 @@ try {
 | `timeoutMs` | `30000` | Per request. |
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
+
+The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace) and `browserBaseUrl` (default `https://cognicloud.flippi.co/api/v1/browser`).
 
 ## Changes
 
