@@ -70,6 +70,15 @@ describe("EndpointClient.responses", () => {
   })
 })
 
+describe("extra fields", () => {
+  it("sends any extra field at the top level of the body", async () => {
+    const { fetch, calls } = fakeFetch(Response.json(answer))
+    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch })
+    await client.responses({ input: "Hi", seed: 7, reasoning: { effort: "low" } })
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: "Hi", seed: 7, reasoning: { effort: "low" } })
+  })
+})
+
 describe("MCP tools", () => {
   it("sends a caller's server address and bearer header to the gateway unchanged", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))

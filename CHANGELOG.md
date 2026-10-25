@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- `ResponsesRequest` takes any extra field, sent to the provider unchanged. The gateway refuses the fields it sets itself (`n`, `best_of`, `background`, `store`, `stream_options`, `prompt`, `conversation`).
+
 ## 0.8.0
 
 - `McpTool` takes `server_url` and `headers` (one `Authorization` bearer token), so a Responses call can use an MCP server the caller names. The gateway checks the address and passes both to the provider. A tool with only `server_label` still names a server the gateway is configured with.

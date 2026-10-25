@@ -88,7 +88,8 @@ export type ResponsesRequest = {
   max_output_tokens?: number
   temperature?: number
   top_p?: number
-}
+  /** Any other field, sent to the provider unchanged. The gateway refuses the fields it sets itself, such as `n` and `store`. */
+} & Record<string, unknown>
 
 /** A Responses answer. `responseId` and `outputItems` are present only for Responses calls. */
 export type ResponseResult = InvokeResponse & {
