@@ -38,11 +38,51 @@ Without a request mapping the body goes to the provider as it is, and only plain
 - An endpoint without a deployment uses the Responses API: `input` (a string or `system`/`developer`/`user`/`assistant` messages), `max_output_tokens`, `temperature`, `top_p`.
 - An endpoint with an Azure deployment uses Chat Completions: `messages`, `max_completion_tokens` (or `max_tokens`), `temperature`, `top_p`.
 
-`instructions`, `store`, `text.format` (structured outputs), images, files, tools and streaming are refused with `400 invalid_request`. Put instructions in a `system` message. Some models refuse `temperature`; the gateway then answers `502 provider_refused`. The endpoint always chooses the model.
+`store` and `text.format` (structured outputs) are refused with `400 invalid_request`. For `instructions`, MCP tools and chaining use `responses`; for streaming use `stream`. Some models refuse `temperature`; the gateway then answers `502 provider_refused`. The endpoint always chooses the model.
 
 Every model answers in the same shape: `output` (text), `finishReason` (`stop`, `length`, `content_filter`, `other`, or `null`) and `usage` (token counts).
 
 `invoke` is never retried, because a retried call can be billed twice.
+
+## Responses with tools
+
+`responses` takes a Responses body with optional `instructions`, MCP tools and `previous_response_id`. Name an MCP server by its label, which the gateway has configured; you never send its address or credentials.
+
+```ts
+const answer = await endpoint.responses({
+  input: "Is this invoice valid?",
+  instructions: "Check invoices.",
+  tools: [{ type: "mcp", server_label: "ksef", allowed_tools: ["validate_invoice_xml"] }],
+  tool_choice: "required",
+})
+
+const next = await endpoint.responses({ input: "And this one?", previous_response_id: answer.responseId })
+```
+
+The answer adds `responseId` (for chaining on the same endpoint) and `outputItems` (the tool calls and messages the provider returned).
+
+## Embeddings
+
+```ts
+const { data } = await endpoint.embeddings({ input: ["first text", "second text"], dimensions: 256 })
+const first = data[0].embedding
+```
+
+The endpoint must point at an embedding deployment. `data` has one item per input, in input order, and each call is billed as prompt tokens.
+
+## Stream a response
+
+`stream` sets `stream: true` and yields events as the answer is written:
+
+```ts
+for await (const event of await endpoint.stream({ messages: [{ role: "user", content: "Write a haiku." }] })) {
+  if (event.type === "delta") process.stdout.write(event.text)
+  if (event.type === "done") console.log(`\n${event.answer.usage.totalTokens} tokens`)
+  if (event.type === "error") console.error(`${event.code}: ${event.message}`)
+}
+```
+
+Each event is `delta` (`text`), then one `done` (`answer`, the same shape as `invoke`), or one `error` (`code`, `message`). A refused call rejects with a `CogniCloudError` before any event. Streams are not retried and have no total timeout; the gateway ends them at five minutes. Stopping early with `break` closes the connection, and the gateway still settles the call.
 
 ## Send a PDF or an image
 

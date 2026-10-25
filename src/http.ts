@@ -30,6 +30,43 @@ function baseOf(url: string) {
   return url.replace(/\/+$/, "")
 }
 
+/** Turns a refused response into the error the gateway sent with it. */
+async function failure(response: Response): Promise<CogniCloudError> {
+  const body = (await response.json().catch(() => ({}))) as { error?: unknown; message?: unknown }
+  return new CogniCloudError(
+    response.status,
+    typeof body.error === "string" ? body.error : "http_error",
+    typeof body.message === "string" ? body.message : response.statusText || "The request failed."
+  )
+}
+
+/**
+ * One attempt, never retried, and no total timeout: a stream may run for minutes. Resolves with the response once it
+ * is accepted, so the caller can read the body as it arrives.
+ */
+export async function open(config: HttpConfig, options: RequestOptions): Promise<Response> {
+  const url = options.url ?? `${baseOf(config.baseUrl)}${options.path ?? ""}`
+  let response: Response
+  try {
+    response = await config.fetch(url, {
+      method: options.method,
+      headers: {
+        accept: "text/event-stream",
+        "accept-language": config.locale,
+        ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+        ...options.headers,
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    })
+  } catch {
+    throw new CogniCloudError(0, "network_error", "The request could not reach CogniCloud.")
+  }
+  if (response.ok) {
+    return response
+  }
+  throw await failure(response)
+}
+
 export async function send<T>(config: HttpConfig, options: RequestOptions): Promise<T> {
   const url = options.url ?? `${baseOf(config.baseUrl)}${options.path ?? ""}`
   const retries = options.retry === false ? 0 : config.maxRetries
@@ -67,11 +104,6 @@ export async function send<T>(config: HttpConfig, options: RequestOptions): Prom
       await sleep(250 * 2 ** attempt)
       continue
     }
-    const body = (await response.json().catch(() => ({}))) as { error?: unknown; message?: unknown }
-    throw new CogniCloudError(
-      response.status,
-      typeof body.error === "string" ? body.error : "http_error",
-      typeof body.message === "string" ? body.message : response.statusText || "The request failed."
-    )
+    throw await failure(response)
   }
 }

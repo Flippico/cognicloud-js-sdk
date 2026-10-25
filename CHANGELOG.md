@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- Responses with MCP tools and chaining: `endpoint.responses(body)` takes `instructions`, `tools` (MCP servers by label), `tool_choice` and `previous_response_id`. The answer adds `responseId` and `outputItems`.
+- Embeddings: `endpoint.embeddings({ input, dimensions? })` returns one vector per input, billed as prompt tokens.
+- Streaming: `endpoint.stream(body)` (and `streamResponses`) yields `delta`, then one `done` or `error` event. The call is opened before the promise resolves, so refusals reject first. Streams are never retried and have no total timeout.
+- `invoke` is unchanged. The types `ResponsesRequest`, `ResponseResult`, `McpTool`, `ToolChoice`, `EmbeddingsRequest`, `EmbeddingsResult` and `StreamEvent` are exported.
+
 ## 0.4.0
 
 - Browser sessions: `cognicloud.browser.sessions` starts, lists, reads and stops sessions that agents drive over the Chrome DevTools Protocol. `browser.countries()` and `browser.profiles()` return empty lists until those features exist. Set `browserBaseUrl` to point at another environment; the default is `https://cognicloud.flippi.co/api/v1/browser`.

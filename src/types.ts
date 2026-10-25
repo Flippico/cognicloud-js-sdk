@@ -63,6 +63,46 @@ export type InvokeResponse = {
 
 export type Body = Record<string, unknown>
 
+/** An MCP server the gateway has configured, named by its label. The gateway supplies its address and credentials. */
+export type McpTool = { type: "mcp"; server_label: string; allowed_tools?: string[] }
+
+export type ToolChoice = "auto" | "required" | "none"
+
+/** A Responses call with optional MCP tools, instructions and chaining. Continue a conversation with `previous_response_id`. */
+export type ResponsesRequest = {
+  input: string | Array<{ role: Role; content: string | InputPart[] }>
+  instructions?: string
+  previous_response_id?: string
+  tools?: McpTool[]
+  tool_choice?: ToolChoice
+  max_output_tokens?: number
+  temperature?: number
+  top_p?: number
+}
+
+/** A Responses answer. `responseId` and `outputItems` are present only for Responses calls. */
+export type ResponseResult = InvokeResponse & {
+  responseId?: string
+  outputItems?: unknown[]
+}
+
+/** Text to embed: one string or up to 256. The endpoint's embedding deployment is the model. */
+export type EmbeddingsRequest = { input: string | string[]; dimensions?: number }
+
+export type EmbeddingsResult = {
+  id: string
+  model: string
+  /** One item per input, in input order. */
+  data: Array<{ index: number; embedding: number[] }>
+  usage: InvokeResponse["usage"]
+}
+
+/** One event of a streamed call: text as it is generated, then one `done` with the answer, or one `error`. */
+export type StreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; answer: ResponseResult }
+  | { type: "error"; code: string; message: string }
+
 export type Role = "system" | "developer" | "user" | "assistant"
 
 /** A text part of a chat message. */
@@ -88,7 +128,7 @@ export type ResponsesBody = {
   max_output_tokens?: number
   temperature?: number
   top_p?: number
-  stream?: false
+  stream?: boolean
 }
 
 /** For an endpoint with an Azure deployment, which uses Chat Completions. The endpoint chooses the model. */
@@ -98,7 +138,7 @@ export type ChatBody = {
   max_tokens?: number
   temperature?: number
   top_p?: number
-  stream?: false
+  stream?: boolean
 }
 
 /** What an endpoint without a request mapping accepts. A mapped endpoint takes the fields its mapping names (`Body`). */

@@ -1,5 +1,7 @@
 import { BrowserApi } from "./browser.js"
-import { send, type HttpConfig } from "./http.js"
+import { CogniCloudError } from "./errors.js"
+import { open, send, type HttpConfig } from "./http.js"
+import { streamEvents } from "./stream.js"
 import type {
   Body,
   CreatedEndpoint,
@@ -7,9 +9,14 @@ import type {
   DailyUsage,
   DailyUsageRange,
   Endpoint,
+  EmbeddingsRequest,
+  EmbeddingsResult,
   EndpointUsage,
   InvokeBody,
   InvokeResponse,
+  ResponseResult,
+  ResponsesRequest,
+  StreamEvent,
   UpdateEndpointInput,
 } from "./types.js"
 
@@ -95,7 +102,7 @@ export class EndpointClient {
 
   /**
    * Sends the body through the endpoint's request mapping and returns the answer in one shape. Without a mapping the body goes to the
-   * provider as it is: plain-text messages only, no images, tools or streaming.
+   * provider as it is: a chat body (`messages`) or a Responses body (`input`), with no streaming. Use `stream` to stream.
    */
   invoke(body: InvokeBody | Body): Promise<InvokeResponse> {
     return send<InvokeResponse>(this.config, {
@@ -105,6 +112,51 @@ export class EndpointClient {
       body,
       retry: false,
     })
+  }
+
+  /** A Responses call with optional MCP tools, instructions and chaining. Never retried. */
+  responses(request: ResponsesRequest): Promise<ResponseResult> {
+    return send<ResponseResult>(this.config, {
+      method: "POST",
+      url: this.url,
+      headers: { authorization: `Bearer ${this.credential}` },
+      body: request,
+      retry: false,
+    })
+  }
+
+  /** Embeds text through the endpoint's embedding deployment. Billed as prompt tokens. Never retried. */
+  embeddings(request: EmbeddingsRequest): Promise<EmbeddingsResult> {
+    return send<EmbeddingsResult>(this.config, {
+      method: "POST",
+      url: `${this.url}/embeddings`,
+      headers: { authorization: `Bearer ${this.credential}` },
+      body: request,
+      retry: false,
+    })
+  }
+
+  /**
+   * Streams a chat or Responses call: sets `stream: true` and yields events as they arrive. The call is opened before the
+   * promise resolves, so a refusal rejects here, before any event. Stop early with `break`; the gateway still settles the call.
+   */
+  async stream(body: InvokeBody | Body | ResponsesRequest): Promise<AsyncGenerator<StreamEvent>> {
+    const response = await open(this.config, {
+      method: "POST",
+      url: this.url,
+      headers: { authorization: `Bearer ${this.credential}` },
+      body: { ...body, stream: true },
+      retry: false,
+    })
+    if (!response.body) {
+      throw new CogniCloudError(0, "network_error", "The stream could not be read.")
+    }
+    return streamEvents(response.body)
+  }
+
+  /** Streams a Responses call, for tools or chaining. See `stream`. */
+  streamResponses(request: ResponsesRequest): Promise<AsyncGenerator<StreamEvent>> {
+    return this.stream(request)
   }
 }
 
