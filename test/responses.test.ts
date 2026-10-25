@@ -70,6 +70,34 @@ describe("EndpointClient.responses", () => {
   })
 })
 
+describe("MCP tools", () => {
+  it("sends a caller's server address and bearer header to the gateway unchanged", async () => {
+    const { fetch, calls } = fakeFetch(Response.json(answer))
+    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch })
+    await client.responses({
+      input: "Check this invoice.",
+      tools: [
+        {
+          type: "mcp",
+          server_label: "ksef",
+          server_url: "https://ksef-api.flippi.co/mcp/v1",
+          headers: { Authorization: "Bearer abc123" },
+          allowed_tools: ["validate_invoice_xml"],
+        },
+      ],
+    })
+    expect(JSON.parse(calls[0].init.body as string).tools).toEqual([
+      {
+        type: "mcp",
+        server_label: "ksef",
+        server_url: "https://ksef-api.flippi.co/mcp/v1",
+        headers: { Authorization: "Bearer abc123" },
+        allowed_tools: ["validate_invoice_xml"],
+      },
+    ])
+  })
+})
+
 describe("EndpointClient.embeddings", () => {
   it("posts to the embeddings path and returns one vector per input", async () => {
     const { fetch, calls } = fakeFetch(

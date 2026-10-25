@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- `McpTool` takes `server_url` and `headers` (one `Authorization` bearer token), so a Responses call can use an MCP server the caller names. The gateway checks the address and passes both to the provider. A tool with only `server_label` still names a server the gateway is configured with.
+
 ## 0.7.0
 
 - Responses with MCP tools and chaining: `endpoint.responses(body)` takes `instructions`, `tools` (MCP servers by label), `tool_choice` and `previous_response_id`. The answer adds `responseId` and `outputItems`.

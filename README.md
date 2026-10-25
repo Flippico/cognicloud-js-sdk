@@ -46,7 +46,7 @@ Every model answers in the same shape: `output` (text), `finishReason` (`stop`, 
 
 ## Responses with tools
 
-`responses` takes a Responses body with optional `instructions`, MCP tools and `previous_response_id`. Name an MCP server by its label, which the gateway has configured; you never send its address or credentials.
+`responses` takes a Responses body with optional `instructions`, MCP tools and `previous_response_id`. An MCP tool names its server with `server_url` and its bearer token with `headers`, as `{ Authorization: "Bearer <token>" }`. The gateway checks the address (https, with no credentials or fragment), sets approval to `never`, and passes both to the provider. A tool with only `server_label` names a server the gateway is configured with.
 
 ```ts
 const answer = await endpoint.responses({

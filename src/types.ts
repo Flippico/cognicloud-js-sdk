@@ -63,8 +63,18 @@ export type InvokeResponse = {
 
 export type Body = Record<string, unknown>
 
-/** An MCP server the gateway has configured, named by its label. The gateway supplies its address and credentials. */
-export type McpTool = { type: "mcp"; server_label: string; allowed_tools?: string[] }
+/**
+ * An MCP server a Responses call may use. Name the server with `server_url` and its bearer token with `headers`; the gateway
+ * checks the address (https, no credentials or fragment), sets approval to `never`, and passes both to the provider. A tool
+ * with only `server_label` names a server the gateway is configured with.
+ */
+export type McpTool = {
+  type: "mcp"
+  server_label: string
+  server_url?: string
+  headers?: { Authorization: string }
+  allowed_tools?: string[]
+}
 
 export type ToolChoice = "auto" | "required" | "none"
 
