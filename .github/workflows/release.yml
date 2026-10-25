@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Publish the version in package.json if npm does not have it
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN is not set; nothing published."
+            exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@cognicloud/sdk@$version" version >/dev/null 2>&1; then
+            echo "@cognicloud/sdk $version is already on npm."
+            exit 0
+          fi
+          npm publish --access public
+          git tag "v$version"
+          git push origin "v$version"
