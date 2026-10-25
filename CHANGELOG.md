@@ -1,18 +1,24 @@
 # Changelog
 
-## 0.9.0
+## [0.9.0] - 2026-10-25
 
 - `ResponsesRequest` takes any extra field, sent to the provider unchanged. The gateway refuses the fields it sets itself (`n`, `best_of`, `background`, `store`, `stream_options`, `prompt`, `conversation`).
 
-## 0.8.0
+## [0.8.0] - 2026-10-25
 
 - `McpTool` takes `server_url` and `headers` (one `Authorization` bearer token), so a Responses call can use an MCP server the caller names. The gateway checks the address and passes both to the provider. A tool with only `server_label` still names a server the gateway is configured with.
 
-## 0.7.0
+## [0.7.0] - 2026-10-25
+
+- Streaming: `endpoint.stream(body)` (and `streamResponses`) yields `delta`, then one `done` or `error` event. The call is opened before the promise resolves, so refusals reject first. Streams are never retried and have no total timeout. A stream that closes early yields `error` with the code `stream_ended`.
+
+## [0.6.0] - 2026-10-24
+
+- Embeddings: `endpoint.embeddings({ input, dimensions? })` returns one vector per input in input order, billed as prompt tokens.
+
+## [0.5.0] - 2026-10-24
 
 - Responses with MCP tools and chaining: `endpoint.responses(body)` takes `instructions`, `tools` (MCP servers by label), `tool_choice` and `previous_response_id`. The answer adds `responseId` and `outputItems`.
-- Embeddings: `endpoint.embeddings({ input, dimensions? })` returns one vector per input, billed as prompt tokens.
-- Streaming: `endpoint.stream(body)` (and `streamResponses`) yields `delta`, then one `done` or `error` event. The call is opened before the promise resolves, so refusals reject first. Streams are never retried and have no total timeout.
 - `invoke` is unchanged. The types `ResponsesRequest`, `ResponseResult`, `McpTool`, `ToolChoice`, `EmbeddingsRequest`, `EmbeddingsResult` and `StreamEvent` are exported.
 
 ## 0.4.0
