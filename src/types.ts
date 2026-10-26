@@ -187,7 +187,7 @@ export type CreateBrowserSessionInput = {
   proxyCountryCode?: string | null
   /** Minutes until the session stops. Default 15; at most 240. */
   timeoutMinutes?: number
-  /** Screen sizes are not available yet; leave unset or `null`. */
+  /** The window size: 320 to 6144 wide and 320 to 3456 high. Chrome starts with it. Leave unset for Chrome's default. */
   screen?: BrowserScreen | null
   /** Captcha solving is not available yet; leave unset or `false`. */
   solveCaptchas?: boolean

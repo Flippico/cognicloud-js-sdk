@@ -41,4 +41,32 @@ describe("CogniCloudBrowser", () => {
       expect(headers.tenant_id).toBeUndefined()
     }
   })
+
+  it("sends a window size and returns the one the session has", async () => {
+    const { fetch, calls } = fakeFetch(
+      Response.json(
+        {
+          id: "b903c5d0",
+          status: "active",
+          cdpUrl: "wss://example.test/cdp",
+          liveUrl: "https://example.test/live",
+          profileId: null,
+          proxyCountryCode: null,
+          solveCaptchas: false,
+          recording: false,
+          screen: { width: 1280, height: 720 },
+          timeoutAt: "2026-10-21T10:15:00Z",
+          startedAt: "2026-10-21T10:00:00Z",
+          finishedAt: null,
+        },
+        { status: 201 },
+      ),
+    )
+    const session = await new CogniCloudBrowser({ key: "cgb_abc", fetch }).browser.sessions.create({
+      timeoutMinutes: 15,
+      screen: { width: 1280, height: 720 },
+    })
+    expect(session.screen).toEqual({ width: 1280, height: 720 })
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ timeoutMinutes: 15, screen: { width: 1280, height: 720 } })
+  })
 })
