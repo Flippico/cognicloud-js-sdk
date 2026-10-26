@@ -236,6 +236,13 @@ export class CogniCloud {
   readonly browser: BrowserApi
 
   constructor(options: CogniCloudOptions) {
+    if (typeof options.token !== "string" || options.token.trim() === "") {
+      throw new CogniCloudError(
+        0,
+        "missing_token",
+        "A token is required: pass the signed-in person's token, or a browser key for browser calls.",
+      )
+    }
     this.endpoints = new EndpointsApi(httpConfig(options), options.token, options.tenant)
     const browserConfig = { ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }
     this.browser = new BrowserApi(browserConfig, options.token, options.tenant ?? defaultTenant)

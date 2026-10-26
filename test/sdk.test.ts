@@ -173,3 +173,16 @@ describe("files", () => {
   })
 })
 
+
+describe("client creation", () => {
+  it("refuses a missing, empty or blank token before any request is made", () => {
+    for (const token of ["", "   ", undefined]) {
+      expect(() => new CogniCloud({ token: token as unknown as string })).toThrow(CogniCloudError)
+    }
+    try {
+      new CogniCloud({ token: "" })
+    } catch (error) {
+      expect((error as CogniCloudError).code).toBe("missing_token")
+    }
+  })
+})

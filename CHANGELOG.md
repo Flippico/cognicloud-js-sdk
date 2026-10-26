@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- A missing, empty or blank `token` throws `CogniCloudError` with code `missing_token` when the client is created, before any request is made.
+
 ## [0.10.0] - 2026-10-26
 
 - `browser.sessions.saveProfile(id, name)` saves a running session as a profile and ends the session. `create({ profileId })` starts a session from a saved profile.
