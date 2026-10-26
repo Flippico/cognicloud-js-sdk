@@ -16,6 +16,8 @@ export type RequestOptions = {
   url?: string
   headers?: Record<string, string>
   body?: unknown
+  /** A body sent as it is, with its own content type, instead of JSON. */
+  raw?: { body: BodyInit; contentType: string }
   /** Calls that bill or change state are sent once; a retry could repeat them. */
   retry?: boolean
 }
@@ -78,10 +80,10 @@ export async function send<T>(config: HttpConfig, options: RequestOptions): Prom
         headers: {
           accept: "application/json",
           "accept-language": config.locale,
-          ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+          ...(options.raw ? { "content-type": options.raw.contentType } : options.body === undefined ? {} : { "content-type": "application/json" }),
           ...options.headers,
         },
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: options.raw ? options.raw.body : options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: AbortSignal.timeout(config.timeoutMs),
       })
     } catch (error) {
