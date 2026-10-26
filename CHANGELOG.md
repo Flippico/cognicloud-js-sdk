@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.13.0] - 2026-10-26
+
+- `browser.importProfile(name, archive)` uploads a Chrome profile folder packed as a `.tar.gz`, so sessions can start from it (`profileId`).
+
 ## [0.12.0] - 2026-10-26
 
 - `screen` on session creation sets the window size: 320 to 6144 wide, 320 to 3456 high. Chrome starts with it, and the session returns it.

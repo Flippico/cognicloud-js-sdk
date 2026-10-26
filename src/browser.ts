@@ -75,6 +75,20 @@ export class BrowserApi {
     return send(this.config, { method: "GET", path: "/countries", headers: this.headers })
   }
 
+  /**
+   * Keeps a Chrome profile folder packed as a `.tar.gz`, under `name`, so sessions can start from it. Only regular files
+   * and folders are accepted, with relative paths, up to 200 MB. Profiles expire after 90 days unused.
+   */
+  importProfile(name: string, archive: Uint8Array | Blob): Promise<BrowserProfile> {
+    return send(this.config, {
+      method: "POST",
+      path: `/profiles/import?name=${encodeURIComponent(name)}`,
+      headers: this.headers,
+      raw: { body: archive as BodyInit, contentType: "application/gzip" },
+      retry: false,
+    })
+  }
+
   /** Saved profiles, newest first. Save one from a running session with `browser.sessions.saveProfile`. */
   profiles(): Promise<BrowserProfile[]> {
     return send(this.config, { method: "GET", path: "/profiles", headers: this.headers })

@@ -70,3 +70,17 @@ describe("CogniCloudBrowser", () => {
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ timeoutMinutes: 15, screen: { width: 1280, height: 720 } })
   })
 })
+
+describe("profile upload", () => {
+  it("sends the archive as the raw body, named in the query", async () => {
+    const profile = { id: "5f1c9a2e", name: "Shop", sizeBytes: 3, createdAt: "2026-10-21T10:20:00Z", lastUsedAt: null, expiresAt: "2027-01-19T10:20:00Z" }
+    const { fetch, calls } = fakeFetch(new Response(JSON.stringify(profile), { status: 201 }))
+    const archive = new Uint8Array([31, 139, 8])
+    const created = await new CogniCloudBrowser({ key: "cgb_abc", fetch }).browser.importProfile("Shop account", archive)
+    expect(created).toEqual(profile)
+    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/browser/profiles/import?name=Shop%20account")
+    expect(calls[0].init.method).toBe("POST")
+    expect((calls[0].init.headers as Record<string, string>)["content-type"]).toBe("application/gzip")
+    expect(calls[0].init.body).toBe(archive)
+  })
+})

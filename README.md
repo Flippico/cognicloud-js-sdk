@@ -139,6 +139,16 @@ const browser = new CogniCloudBrowser({ key: process.env.COGNICLOUD_BROWSER_KEY!
 const session = await browser.browser.sessions.create({ timeoutMinutes: 15 })
 ```
 
+Upload a profile folder packed as a `.tar.gz` (see the app docs for how to pack it), then start a session from it:
+
+```ts
+import { readFile } from "node:fs/promises"
+
+const profile = await browser.browser.importProfile("Shop account", await readFile("shop-profile.tar.gz"))
+const session = await browser.browser.sessions.create({ profileId: profile.id })
+```
+
+
 A browser session is a Chrome that your agent drives over the Chrome DevTools Protocol. Start one, connect your automation library to its `cdpUrl`, and stop it when you are done:
 
 ```ts
