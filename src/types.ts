@@ -181,7 +181,7 @@ export type BrowserSessionList = {
 }
 
 export type CreateBrowserSessionInput = {
-  /** Profiles are not available yet; leave unset or `null`. */
+  /** Start from a saved profile, with the logins it holds. */
   profileId?: string | null
   /** Proxy countries are not available yet; leave unset or `null`. */
   proxyCountryCode?: string | null
@@ -200,7 +200,9 @@ export type ProxyCountry = { code: string; name: string }
 export type BrowserProfile = {
   id: string
   name: string
-  cookieDomains: string[]
-  lastUsedAt: string | null
+  sizeBytes: number
   createdAt: string
+  lastUsedAt: string | null
+  /** Deleted after this time unless a session starts from it. */
+  expiresAt: string
 }
