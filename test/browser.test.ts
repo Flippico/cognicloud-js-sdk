@@ -79,6 +79,28 @@ describe("BrowserApi", () => {
     expect((error as CogniCloudError).code).toBe("concurrency_limit")
   })
 
+  it("saves a session as a profile and starts a session from it", async () => {
+    const profile = {
+      id: "5f1c9a2e",
+      name: "shop login",
+      sizeBytes: 20480,
+      createdAt: "2026-10-21T10:20:00Z",
+      lastUsedAt: null,
+      expiresAt: "2027-01-19T10:20:00Z",
+    }
+    const { fetch, calls } = fakeFetch(
+      new Response(JSON.stringify(profile), { status: 201 }),
+      new Response(JSON.stringify({ ...session, profileId: profile.id }), { status: 201 }),
+    )
+    const client = new CogniCloud({ token: "amadeus-token", tenant: "acme", fetch })
+    expect(await client.browser.sessions.saveProfile("b903c5d0", "shop login")).toEqual(profile)
+    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/browser/sessions/b903c5d0/profile")
+    expect(calls[0].init.method).toBe("POST")
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ name: "shop login" })
+    await client.browser.sessions.create({ profileId: profile.id })
+    expect(JSON.parse(String(calls[1].init.body))).toEqual({ profileId: "5f1c9a2e" })
+  })
+
   it("lists countries and profiles", async () => {
     const { fetch, calls } = fakeFetch(Response.json([]), Response.json([]))
     const browser = new CogniCloud({ token: "t", fetch }).browser

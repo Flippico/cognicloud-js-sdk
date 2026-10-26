@@ -31,6 +31,21 @@ export class BrowserSessionsApi {
     return send(this.config, { method: "GET", path: `/sessions/${encodeURIComponent(id)}`, headers: this.headers })
   }
 
+  /**
+   * Closes the session's browser cleanly, keeps its profile under `name` and ends the session. Start a session with the
+   * returned `id` as `profileId` to continue from those logins. A profile holds cookies and logins, so keep it private.
+   * Names are 1 to 80 characters and unique per person.
+   */
+  saveProfile(id: string, name: string): Promise<BrowserProfile> {
+    return send(this.config, {
+      method: "POST",
+      path: `/sessions/${encodeURIComponent(id)}/profile`,
+      headers: this.headers,
+      body: { name },
+      retry: false,
+    })
+  }
+
   /** Closing the CDP connection does not stop a session; this does. */
   stop(id: string): Promise<BrowserSession> {
     return send(this.config, {
@@ -59,7 +74,7 @@ export class BrowserApi {
     return send(this.config, { method: "GET", path: "/countries", headers: this.headers })
   }
 
-  /** Profiles keep cookies between sessions. Empty until profiles are available. */
+  /** Saved profiles, newest first. Save one from a running session with `browser.sessions.saveProfile`. */
   profiles(): Promise<BrowserProfile[]> {
     return send(this.config, { method: "GET", path: "/profiles", headers: this.headers })
   }
