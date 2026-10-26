@@ -1,6 +1,6 @@
 {
   "name": "@cognicloud/sdk",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "CogniCloud SDK: call AI Gateway endpoints and manage them.",
   "type": "module",
   "main": "./dist/index.js",

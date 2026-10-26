@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.10.0] - 2026-10-26
 
 - `browser.sessions.saveProfile(id, name)` saves a running session as a profile and ends the session. `create({ profileId })` starts a session from a saved profile.
 - Breaking: `BrowserProfile` has `sizeBytes` and `expiresAt` in place of `cookieDomains`.
