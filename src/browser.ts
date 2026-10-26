@@ -63,9 +63,10 @@ export class BrowserApi {
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
-  constructor(config: HttpConfig, token: string, tenant: string) {
+  /** `tenant` is sent as the `tenant_id` header when given; a browser key names its workspace and needs none. */
+  constructor(config: HttpConfig, token: string, tenant?: string) {
     this.config = config
-    this.headers = { authorization: `Bearer ${token}`, tenant_id: tenant }
+    this.headers = tenant === undefined ? { authorization: `Bearer ${token}` } : { authorization: `Bearer ${token}`, tenant_id: tenant }
     this.sessions = new BrowserSessionsApi(config, this.headers)
   }
 
