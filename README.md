@@ -102,7 +102,7 @@ Files go up to 10 MB. The gateway reserves a quarter of a file's size in tokens 
 
 ## Manage endpoints
 
-Management calls use the signed-in person's Amadeus session token, sent as `Authorization: Bearer`, and the workspace (`tenant`, default `cognicloud`), sent as the `tenant_id` header.
+Calls act as the account of `token`, the signed-in person's Amadeus session token or a browser key for browser calls, sent as `Authorization: Bearer`. A missing, empty or blank token throws `CogniCloudError` with code `missing_token` when the client is created. The workspace (`tenant`, default `cognicloud`) is sent as the `tenant_id` header.
 
 ```ts
 import { CogniCloud } from "@cognicloud/sdk"
@@ -127,6 +127,8 @@ await cc.endpoints.delete(endpoint.id)
 Also available: `cc.endpoints.list()` and `cc.endpoints.get(id)`.
 
 ## Browser sessions
+
+Browser calls accept the signed-in person's token, or a browser key. Create a key in the dashboard under **Browser → API keys** and pass it as the token. A key keeps working after its owner signs out. Keys cannot be created through the SDK or the API.
 
 A browser session is a Chrome that your agent drives over the Chrome DevTools Protocol. Start one, connect your automation library to its `cdpUrl`, and stop it when you are done:
 
