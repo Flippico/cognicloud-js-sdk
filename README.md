@@ -130,6 +130,15 @@ Also available: `cc.endpoints.list()` and `cc.endpoints.get(id)`.
 
 Browser calls accept the signed-in person's token, or a browser key. Create a key in the dashboard under **Browser → API keys** and pass it as the token. A key keeps working after its owner signs out. Keys cannot be created through the SDK or the API.
 
+Use the browser product with a browser key alone. The key names its workspace, so no Amadeus token or tenant is needed:
+
+```ts
+import { CogniCloudBrowser } from "@cognicloud/sdk"
+
+const browser = new CogniCloudBrowser({ key: process.env.COGNICLOUD_BROWSER_KEY! })
+const session = await browser.browser.sessions.create({ timeoutMinutes: 15 })
+```
+
 A browser session is a Chrome that your agent drives over the Chrome DevTools Protocol. Start one, connect your automation library to its `cdpUrl`, and stop it when you are done:
 
 ```ts

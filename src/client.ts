@@ -231,6 +231,30 @@ export class EndpointsApi {
 }
 
 /** Manage CogniCloud resources: AI Gateway endpoints and browser sessions. */
+/** The browser product alone: a browser key from the dashboard is the only credential needed. */
+export type CogniCloudBrowserOptions = ClientOptions & {
+  /** A browser key from the dashboard (Browser → API keys). It names its workspace, so no tenant is sent. */
+  key: string
+  /** Point at another environment. Default `https://cognicloud.flippi.co/api/v1/browser`. */
+  browserBaseUrl?: string
+}
+
+/** Browser sessions, profiles and countries with a browser key. No Amadeus token is needed. */
+export class CogniCloudBrowser {
+  readonly browser: BrowserApi
+
+  constructor(options: CogniCloudBrowserOptions) {
+    if (typeof options.key !== "string" || options.key.trim() === "") {
+      throw new CogniCloudError(
+        0,
+        "missing_key",
+        "A browser key is required. Create one in the dashboard under Browser → API keys.",
+      )
+    }
+    this.browser = new BrowserApi({ ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }, options.key)
+  }
+}
+
 export class CogniCloud {
   readonly endpoints: EndpointsApi
   readonly browser: BrowserApi
