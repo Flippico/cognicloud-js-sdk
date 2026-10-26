@@ -102,7 +102,7 @@ Files go up to 10 MB. The gateway reserves a quarter of a file's size in tokens 
 
 ## Manage endpoints
 
-Management calls use the signed-in person's Amadeus session token, sent as `Authorization: Bearer`, and the workspace (`tenant`, default `cognicloud`), sent as the `tenant_id` header.
+Calls act as the account of `token`, the signed-in person's Amadeus session token or a browser key for browser calls, sent as `Authorization: Bearer`. A missing, empty or blank token throws `CogniCloudError` with code `missing_token` when the client is created. The workspace (`tenant`, default `cognicloud`) is sent as the `tenant_id` header.
 
 ```ts
 import { CogniCloud } from "@cognicloud/sdk"
