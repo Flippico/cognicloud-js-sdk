@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.14.0] - 2026-10-29
+
+- `client.mail` manages mailboxes on the Flippico mail server: `create(localPart)` returns the generated password once, `list`, `get`, `delete`, `rotatePassword`, and `connectionSettings`. The `mailBaseUrl` option points it at another environment.
+
 ## [0.13.0] - 2026-10-26
 
 - `browser.importProfile(name, archive)` uploads a Chrome profile folder packed as a `.tar.gz`, so sessions can start from it (`profileId`).

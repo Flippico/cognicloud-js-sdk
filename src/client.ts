@@ -1,4 +1,5 @@
 import { BrowserApi } from "./browser.js"
+import { MailApi } from "./mail.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
 import { streamEvents } from "./stream.js"
@@ -58,6 +59,8 @@ export type CogniCloudOptions = ClientOptions & {
   tenant?: string
   /** The browser service's base. Default `https://cognicloud.flippi.co/api/v1/browser`. */
   browserBaseUrl?: string
+  /** The mail service's base. Default `https://cognicloud.flippi.co/api/v1/mail`. */
+  mailBaseUrl?: string
 }
 
 const defaultTenant = "cognicloud"
@@ -70,6 +73,7 @@ export function encodeTenant(tenant: string): string {
 const defaults = {
   baseUrl: "https://cognicloud.flippi.co/api/v1/ai-gateway",
   browserBaseUrl: "https://cognicloud.flippi.co/api/v1/browser",
+  mailBaseUrl: "https://cognicloud.flippi.co/api/v1/mail",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -258,6 +262,7 @@ export class CogniCloudBrowser {
 export class CogniCloud {
   readonly endpoints: EndpointsApi
   readonly browser: BrowserApi
+  readonly mail: MailApi
 
   constructor(options: CogniCloudOptions) {
     if (typeof options.token !== "string" || options.token.trim() === "") {
@@ -270,5 +275,7 @@ export class CogniCloud {
     this.endpoints = new EndpointsApi(httpConfig(options), options.token, options.tenant)
     const browserConfig = { ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }
     this.browser = new BrowserApi(browserConfig, options.token, options.tenant ?? defaultTenant)
+    const mailConfig = { ...httpConfig(options), baseUrl: options.mailBaseUrl ?? defaults.mailBaseUrl }
+    this.mail = new MailApi(mailConfig, { authorization: `Bearer ${options.token}`, tenant_id: options.tenant ?? defaultTenant })
   }
 }

@@ -206,3 +206,47 @@ export type BrowserProfile = {
   /** Deleted after this time unless a session starts from it. */
   expiresAt: string
 }
+
+export type Mailbox = {
+  id: string
+  address: string
+  localPart: string
+  domain: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type MailboxList = {
+  items: Mailbox[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export type MailboxListOptions = {
+  limit?: number
+  offset?: number
+}
+
+export type CreatedMailbox = {
+  mailbox: Mailbox
+  /** Returned once; the server keeps no copy. */
+  password: string
+}
+
+export type RotatedMailboxPassword = {
+  /** Returned once; the server keeps no copy. */
+  password: string
+}
+
+export type MailServerEndpoint = {
+  host: string
+  port: number
+  security: string
+}
+
+export type MailConnectionSettings = {
+  usernameFormat: string
+  imap: MailServerEndpoint
+  smtp: MailServerEndpoint
+}

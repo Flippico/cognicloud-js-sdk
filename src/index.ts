@@ -1,6 +1,7 @@
 export { CogniCloud, CogniCloudBrowser, EndpointClient, EndpointsApi, encodeTenant } from "./client.js"
 export type { ClientOptions, CogniCloudBrowserOptions, CogniCloudOptions, EndpointClientOptions } from "./client.js"
 export { BrowserApi, BrowserSessionsApi } from "./browser.js"
+export { MailApi } from "./mail.js"
 export { CogniCloudError } from "./errors.js"
 export { imagePart, inputFile, inputImage, inputText, maxFileBytes, pdfPart, textPart, toBase64 } from "./files.js"
 export type { ImageType } from "./files.js"
