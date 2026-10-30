@@ -188,6 +188,42 @@ await cc.mail.create("ceo", { domain: "yourcompany.com" })
 
 `mail.list`, `get`, `rotatePassword` and `delete` manage mailboxes; `mail.domains.list`, `get` and `delete` manage domains. Adding, verifying and deleting domains need a signed-in person's token.
 
+## Database
+
+Hosted Postgres. A signed-in person creates databases; a database key (`cgd_...`) from the dashboard queries one of them and needs nothing else. A `read` key can only read. A `write` key runs as the database owner.
+
+```ts
+import { CogniCloud, CogniCloudDatabase } from "@cognicloud/sdk"
+
+const cc = new CogniCloud({ token: sessionToken })
+const database = await cc.database.create("Orders")
+
+const db = new CogniCloudDatabase({ key: process.env.COGNICLOUD_DATABASE_KEY! })
+
+await db.query("CREATE TABLE orders (id serial PRIMARY KEY, email text, total numeric)")
+const { rows } = await db.query("SELECT * FROM orders WHERE total > $1", [100])
+
+await db.table("orders").insert({ email: "a@example.com", total: "19.90" })
+const paid = await db.table("orders").select("id", "email").gt("total", 10).order("id", { desc: true }).limit(20)
+await db.table("orders").update({ total: "0" }).eq("id", 1)
+await db.table("orders").delete().eq("id", 1)
+
+await db.transaction([
+  { sql: "UPDATE accounts SET balance = balance - $1 WHERE id = $2", params: [10, 1] },
+  { sql: "UPDATE accounts SET balance = balance + $1 WHERE id = $2", params: [10, 2] },
+])
+const tables = await db.tables()
+```
+
+- Filters are `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`, `is` and `in`. `update` and `delete` need at least one; to change every row, use `query`.
+- `select`, `update` and `delete` run when awaited. `insert` runs at once.
+- A result has `rows`, `columns`, `rowCount` and `truncated`. One request stops after 15 seconds and returns at most 1,000 rows and 5 MB.
+- `numeric` values, and `bigint` values beyond 2^53, come back as strings, so nothing is rounded. `bytea` comes back as base64.
+- A failed statement throws `CogniCloudError` with `code` `query_failed` and `queryCode`: a Postgres SQLSTATE such as `23505`, or `query_timeout`.
+- `query` and `transaction`, inserts, updates and deletes are never retried, because they may change data.
+
+`cc.database.list`, `get` and `delete` manage databases, `cc.database.keys.list` and `revoke` manage keys, and `cc.database.actions` lists what was done. Keys are created in the dashboard.
+
 ## Errors
 
 ```ts
@@ -215,7 +251,7 @@ try {
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) and `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`).
+The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`) and `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`).
 
 ## Changes
 

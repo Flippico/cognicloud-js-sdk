@@ -1,4 +1,5 @@
 import { BrowserApi } from "./browser.js"
+import { DatabaseApi, DatabaseDataApi } from "./database.js"
 import { MailApi } from "./mail.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
@@ -61,6 +62,8 @@ export type CogniCloudOptions = ClientOptions & {
   browserBaseUrl?: string
   /** The mail service's base. Default `https://cognicloud.dev/api/v1/mail`. */
   mailBaseUrl?: string
+  /** The database service's base. Default `https://cognicloud.dev/api/v1/database`. */
+  databaseBaseUrl?: string
 }
 
 const defaultTenant = "cognicloud"
@@ -74,6 +77,7 @@ const defaults = {
   baseUrl: "https://cognicloud.dev/api/v1/ai-gateway",
   browserBaseUrl: "https://cognicloud.dev/api/v1/browser",
   mailBaseUrl: "https://cognicloud.dev/api/v1/mail",
+  databaseBaseUrl: "https://cognicloud.dev/api/v1/database",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -259,10 +263,32 @@ export class CogniCloudBrowser {
   }
 }
 
+export type CogniCloudDatabaseOptions = ClientOptions & {
+  /** A database key from the dashboard (Database → API keys). It names its database and workspace. */
+  key: string
+  /** Point at another environment. Default `https://cognicloud.dev/api/v1/database`. */
+  databaseBaseUrl?: string
+}
+
+/** Queries one database with its key. No Amadeus token is needed. */
+export class CogniCloudDatabase extends DatabaseDataApi {
+  constructor(options: CogniCloudDatabaseOptions) {
+    if (typeof options.key !== "string" || options.key.trim() === "") {
+      throw new CogniCloudError(
+        0,
+        "missing_key",
+        "A database key is required. Create one in the dashboard under Database → API keys.",
+      )
+    }
+    super({ ...httpConfig(options), baseUrl: options.databaseBaseUrl ?? defaults.databaseBaseUrl }, options.key)
+  }
+}
+
 export class CogniCloud {
   readonly endpoints: EndpointsApi
   readonly browser: BrowserApi
   readonly mail: MailApi
+  readonly database: DatabaseApi
 
   constructor(options: CogniCloudOptions) {
     if (typeof options.token !== "string" || options.token.trim() === "") {
@@ -276,6 +302,8 @@ export class CogniCloud {
     const browserConfig = { ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }
     this.browser = new BrowserApi(browserConfig, options.token, options.tenant ?? defaultTenant)
     const mailConfig = { ...httpConfig(options), baseUrl: options.mailBaseUrl ?? defaults.mailBaseUrl }
-    this.mail = new MailApi(mailConfig, { authorization: `Bearer ${options.token}`, tenant_id: options.tenant ?? defaultTenant })
+    const headers = { authorization: `Bearer ${options.token}`, tenant_id: options.tenant ?? defaultTenant }
+    this.mail = new MailApi(mailConfig, headers)
+    this.database = new DatabaseApi({ ...httpConfig(options), baseUrl: options.databaseBaseUrl ?? defaults.databaseBaseUrl }, headers)
   }
 }

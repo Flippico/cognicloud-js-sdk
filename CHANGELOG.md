@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0] - 2026-10-30
+
+### Added
+- `CogniCloudDatabase` queries a hosted database with a database key: `query`, `transaction`, `tables`, and `table(name)` with `select`, `insert`, `update` and `delete`.
+- `client.database` manages databases, their keys (`keys.list`, `keys.revoke`) and the action log (`actions`). The `databaseBaseUrl` option points it at another environment.
+- `CogniCloudError.queryCode` carries the Postgres code of a failed statement.
+
 ## [0.16.0] - 2026-10-30
 
 ### Added

@@ -284,3 +284,90 @@ export type MailDomain = {
 export type MailDomainList = {
   items: MailDomain[]
 }
+
+export type HostedDatabase = {
+  id: string
+  name: string
+  createdAt: string
+}
+
+export type DatabaseList = {
+  items: HostedDatabase[]
+}
+
+export type DatabaseKey = {
+  id: string
+  databaseId: string
+  name: string
+  /** `read` can only read. `write` runs as the database owner, so it can also change the schema. */
+  access: "read" | "write"
+  /** The first characters of the secret, to tell keys apart. */
+  prefix: string
+  createdAt: string
+  lastUsedAt: string | null
+}
+
+export type DatabaseAction = {
+  id: string
+  /** `create_database`, `delete_database`, `create_key` or `revoke_key`. */
+  action: string
+  databaseId: string | null
+  name: string | null
+  startedAt: string
+  finishedAt: string | null
+  durationMs: number | null
+  /** `started`, `succeeded` or `failed`. */
+  outcome: string
+  errorCode: string | null
+}
+
+export type DatabaseActionList = {
+  items: DatabaseAction[]
+  /** Pass as `cursor` for the next page. Null on the last page. */
+  nextCursor: string | null
+}
+
+export type DatabaseActionListOptions = {
+  limit?: number
+  cursor?: string
+}
+
+export type DatabaseRow = Record<string, unknown>
+
+export type DatabaseStatement = {
+  sql: string
+  params?: unknown[]
+}
+
+export type QueryResult<T = DatabaseRow> = {
+  columns: { name: string; type: string }[]
+  rows: T[]
+  /** Rows returned or changed by the statement, including any not sent back. */
+  rowCount: number
+  /** More rows matched than came back: at most 1,000 rows and 5 MB do. */
+  truncated: boolean
+}
+
+export type DatabaseTable = {
+  name: string
+  columns: { name: string; type: string; nullable: boolean }[]
+}
+
+export type DatabaseFilter = {
+  column: string
+  op: string
+  value: unknown
+}
+
+export type DatabaseOrder = {
+  column: string
+  desc: boolean
+}
+
+export type DatabaseSelect = {
+  columns: string[]
+  filters: DatabaseFilter[]
+  order: DatabaseOrder[]
+  limit?: number
+  offset?: number
+}

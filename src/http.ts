@@ -34,11 +34,12 @@ function baseOf(url: string) {
 
 /** Turns a refused response into the error the gateway sent with it. */
 async function failure(response: Response): Promise<CogniCloudError> {
-  const body = (await response.json().catch(() => ({}))) as { error?: unknown; message?: unknown }
+  const body = (await response.json().catch(() => ({}))) as { error?: unknown; message?: unknown; code?: unknown }
   return new CogniCloudError(
     response.status,
     typeof body.error === "string" ? body.error : "http_error",
-    typeof body.message === "string" ? body.message : response.statusText || "The request failed."
+    typeof body.message === "string" ? body.message : response.statusText || "The request failed.",
+    typeof body.code === "string" ? body.code : undefined,
   )
 }
 
