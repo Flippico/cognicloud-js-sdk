@@ -246,7 +246,41 @@ export type MailServerEndpoint = {
 }
 
 export type MailConnectionSettings = {
+  /** The shared domain mailboxes are on unless a custom domain is chosen. */
+  defaultDomain: string
   usernameFormat: string
   imap: MailServerEndpoint
   smtp: MailServerEndpoint
+}
+
+export type CreateMailboxOptions = {
+  /** One of your verified domains. Omit it for the shared domain. */
+  domain?: string
+}
+
+/** One DNS record to publish for a domain, with the result of its last check (`null` when not checked). */
+export type MailDnsRecord = {
+  type: "TXT" | "MX"
+  host: string
+  /** Exactly what to enter at the DNS provider; long TXT values are already split into quoted strings. */
+  value: string
+  purpose: "ownership" | "mx" | "spf" | "dkim" | "dmarc"
+  ok: boolean | null
+}
+
+export type MailDomain = {
+  id: string
+  name: string
+  /** `pending` until the ownership record is found; `needs_attention` when it is gone again. */
+  status: "pending" | "verified" | "needs_attention"
+  records: MailDnsRecord[]
+  /** Mail servers the domain uses today besides CogniCloud. */
+  otherMx: string[]
+  createdAt: string
+  verifiedAt: string | null
+  lastCheckedAt: string | null
+}
+
+export type MailDomainList = {
+  items: MailDomain[]
 }

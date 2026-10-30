@@ -62,3 +62,43 @@ describe("CogniCloud.mail", () => {
     expect(calls[1]?.url).toBe(`https://cognicloud.dev/api/v1/mail/mailboxes/${mailbox.id}/password/rotate`)
   })
 })
+
+const domain = {
+  id: "d1",
+  name: "yourcompany.com",
+  status: "pending",
+  records: [{ type: "TXT", host: "_cognicloud.yourcompany.com", value: "cognicloud-verify=abc", purpose: "ownership", ok: null }],
+  otherMx: [],
+  createdAt: "2026-10-30T10:00:00Z",
+  verifiedAt: null,
+  lastCheckedAt: null,
+}
+
+describe("CogniCloud.mail.domains", () => {
+  it("adds, verifies, lists and deletes a domain, and creates a mailbox on it", async () => {
+    const { fetch, calls } = fakeFetch(
+      Response.json(domain, { status: 201 }),
+      Response.json({ ...domain, status: "verified" }),
+      Response.json({ items: [{ ...domain, status: "verified" }] }),
+      Response.json({ mailbox: { ...mailbox, address: "ceo@yourcompany.com" }, password: "pw" }, { status: 201 }),
+      new Response(null, { status: 204 }),
+    )
+    const client = new CogniCloud({ token: "session-token", fetch })
+    expect((await client.mail.domains.add("yourcompany.com")).status).toBe("pending")
+    expect((await client.mail.domains.verify("d1")).status).toBe("verified")
+    expect((await client.mail.domains.list()).items).toHaveLength(1)
+    const created = await client.mail.create("ceo", { domain: "yourcompany.com" })
+    expect(created.mailbox.address).toBe("ceo@yourcompany.com")
+    await client.mail.domains.delete("d1")
+
+    expect(calls.map((call) => `${call.init.method} ${call.url}`)).toEqual([
+      "POST https://cognicloud.dev/api/v1/mail/domains",
+      "POST https://cognicloud.dev/api/v1/mail/domains/d1/verify",
+      "GET https://cognicloud.dev/api/v1/mail/domains",
+      "POST https://cognicloud.dev/api/v1/mail/mailboxes",
+      "DELETE https://cognicloud.dev/api/v1/mail/domains/d1",
+    ])
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ name: "yourcompany.com" })
+    expect(JSON.parse(String(calls[3]?.init.body))).toEqual({ localPart: "ceo", domain: "yourcompany.com" })
+  })
+})

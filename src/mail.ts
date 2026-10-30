@@ -1,21 +1,74 @@
 import { send, type HttpConfig } from "./http.js"
 import type {
   CreatedMailbox,
+  CreateMailboxOptions,
   Mailbox,
   MailboxList,
   MailboxListOptions,
   MailConnectionSettings,
+  MailDomain,
+  MailDomainList,
   RotatedMailboxPassword,
 } from "./types.js"
 
-/** Creates, lists and removes mailboxes on the Flippico mail server. */
-export class MailApi {
+/**
+ * Your own domains for mailboxes. Adding, verifying and deleting need a signed-in person's token; an API key can
+ * list them and create mailboxes on verified ones.
+ */
+export class MailDomainsApi {
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
   constructor(config: HttpConfig, headers: Record<string, string>) {
     this.config = config
     this.headers = headers
+  }
+
+  /** Newest first, each with the DNS records to publish. */
+  list(): Promise<MailDomainList> {
+    return send(this.config, { method: "GET", path: "/domains", headers: this.headers })
+  }
+
+  get(id: string): Promise<MailDomain> {
+    return send(this.config, { method: "GET", path: `/domains/${encodeURIComponent(id)}`, headers: this.headers })
+  }
+
+  /** Adds the domain as pending. Publish its `records`, then call `verify`. */
+  add(name: string): Promise<MailDomain> {
+    return send(this.config, { method: "POST", path: "/domains", headers: this.headers, body: { name }, retry: false })
+  }
+
+  /** Checks the domain's DNS now. The first time the ownership record is found, the domain becomes verified. */
+  verify(id: string): Promise<MailDomain> {
+    return send(this.config, {
+      method: "POST",
+      path: `/domains/${encodeURIComponent(id)}/verify`,
+      headers: this.headers,
+      retry: false,
+    })
+  }
+
+  /** Refused while the domain has mailboxes. */
+  delete(id: string): Promise<void> {
+    return send(this.config, {
+      method: "DELETE",
+      path: `/domains/${encodeURIComponent(id)}`,
+      headers: this.headers,
+      retry: false,
+    })
+  }
+}
+
+/** Creates, lists and removes mailboxes on the Flippico mail server. */
+export class MailApi {
+  private readonly config: HttpConfig
+  private readonly headers: Record<string, string>
+  readonly domains: MailDomainsApi
+
+  constructor(config: HttpConfig, headers: Record<string, string>) {
+    this.config = config
+    this.headers = headers
+    this.domains = new MailDomainsApi(config, headers)
   }
 
   /** Newest first. */
@@ -28,15 +81,16 @@ export class MailApi {
   }
 
   /**
-   * Creates `<localPart>@<domain>` on the mail server. The password in the result is returned once and is not stored,
-   * so save it now. Names are 1 to 64 characters: letters, digits, dots, dashes and underscores.
+   * Creates `<localPart>@<domain>` on the mail server: on the shared domain, or on one of your verified domains with
+   * `domain`. The password in the result is returned once and is not stored, so save it now. Names are 1 to 64
+   * characters: letters, digits, dots, dashes and underscores.
    */
-  create(localPart: string): Promise<CreatedMailbox> {
+  create(localPart: string, options: CreateMailboxOptions = {}): Promise<CreatedMailbox> {
     return send(this.config, {
       method: "POST",
       path: "/mailboxes",
       headers: this.headers,
-      body: { localPart },
+      body: options.domain === undefined ? { localPart } : { localPart, domain: options.domain },
       retry: false,
     })
   }

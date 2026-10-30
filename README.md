@@ -172,6 +172,22 @@ await cc.browser.sessions.stop(session.id)
 - `sessions.list()` returns the workspace's sessions, newest first, with `concurrency: { active, limit }`. A start beyond the limit fails with `429` and code `concurrency_limit`.
 - Proxy countries, profiles, screen sizes, captcha solving and recording are not available yet. `countries()` and `profiles()` return empty lists, and a start that asks for one of those options fails with `422`.
 
+## Mail
+
+Mailboxes on the Flippico mail server. `token` is a signed-in person's token or a mail key (`cgm_...`). The password is returned once; store it.
+
+```ts
+const { mailbox, password } = await cc.mail.create("support")
+const settings = await cc.mail.connectionSettings() // IMAP and SMTP hosts, and defaultDomain
+
+// Your own domain: add it, publish domain.records at your DNS provider, then verify.
+const domain = await cc.mail.domains.add("yourcompany.com")
+await cc.mail.domains.verify(domain.id)
+await cc.mail.create("ceo", { domain: "yourcompany.com" })
+```
+
+`mail.list`, `get`, `rotatePassword` and `delete` manage mailboxes; `mail.domains.list`, `get` and `delete` manage domains. Adding, verifying and deleting domains need a signed-in person's token.
+
 ## Errors
 
 ```ts
