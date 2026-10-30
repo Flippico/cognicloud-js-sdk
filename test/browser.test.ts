@@ -17,8 +17,8 @@ function fakeFetch(...responses: Response[]) {
 const session = {
   id: "b903c5d0",
   status: "active",
-  cdpUrl: "wss://cognicloud.flippi.co/api/v1/browser/sessions/b903c5d0/cdp?token=t",
-  liveUrl: "https://cognicloud.flippi.co/api/v1/browser/sessions/b903c5d0/live?token=t",
+  cdpUrl: "wss://cognicloud.dev/api/v1/browser/sessions/b903c5d0/cdp?token=t",
+  liveUrl: "https://cognicloud.dev/api/v1/browser/sessions/b903c5d0/live?token=t",
   profileId: null,
   proxyCountryCode: null,
   solveCaptchas: false,
@@ -35,7 +35,7 @@ describe("BrowserApi", () => {
     const client = new CogniCloud({ token: "amadeus-token", tenant: "acme", fetch })
     const created = await client.browser.sessions.create({ timeoutMinutes: 15 })
     expect(created).toEqual(session)
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/browser/sessions")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/browser/sessions")
     expect(calls[0].init.method).toBe("POST")
     const headers = calls[0].init.headers as Record<string, string>
     expect(headers.authorization).toBe("Bearer amadeus-token")
@@ -55,9 +55,9 @@ describe("BrowserApi", () => {
     expect((await browser.sessions.get("b903c5d0")).status).toBe("active")
     expect((await browser.sessions.stop("b903c5d0")).status).toBe("stopped")
     expect(calls.map((call) => call.url)).toEqual([
-      "https://cognicloud.flippi.co/api/v1/browser/sessions",
-      "https://cognicloud.flippi.co/api/v1/browser/sessions/b903c5d0",
-      "https://cognicloud.flippi.co/api/v1/browser/sessions/b903c5d0/stop",
+      "https://cognicloud.dev/api/v1/browser/sessions",
+      "https://cognicloud.dev/api/v1/browser/sessions/b903c5d0",
+      "https://cognicloud.dev/api/v1/browser/sessions/b903c5d0/stop",
     ])
     expect(calls[2].init.method).toBe("POST")
   })
@@ -94,7 +94,7 @@ describe("BrowserApi", () => {
     )
     const client = new CogniCloud({ token: "amadeus-token", tenant: "acme", fetch })
     expect(await client.browser.sessions.saveProfile("b903c5d0", "shop login")).toEqual(profile)
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/browser/sessions/b903c5d0/profile")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/browser/sessions/b903c5d0/profile")
     expect(calls[0].init.method).toBe("POST")
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ name: "shop login" })
     await client.browser.sessions.create({ profileId: profile.id })
@@ -107,8 +107,8 @@ describe("BrowserApi", () => {
     expect(await browser.countries()).toEqual([])
     expect(await browser.profiles()).toEqual([])
     expect(calls.map((call) => call.url)).toEqual([
-      "https://cognicloud.flippi.co/api/v1/browser/countries",
-      "https://cognicloud.flippi.co/api/v1/browser/profiles",
+      "https://cognicloud.dev/api/v1/browser/countries",
+      "https://cognicloud.dev/api/v1/browser/profiles",
     ])
   })
 })

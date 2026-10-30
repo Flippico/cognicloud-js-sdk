@@ -32,8 +32,8 @@ describe("CogniCloudBrowser", () => {
     expect(await browser.countries()).toEqual([])
     expect(await browser.profiles()).toEqual([])
     expect(calls.map((call) => call.url)).toEqual([
-      "https://cognicloud.flippi.co/api/v1/browser/countries",
-      "https://cognicloud.flippi.co/api/v1/browser/profiles",
+      "https://cognicloud.dev/api/v1/browser/countries",
+      "https://cognicloud.dev/api/v1/browser/profiles",
     ])
     for (const call of calls) {
       const headers = call.init.headers as Record<string, string>
@@ -78,7 +78,7 @@ describe("profile upload", () => {
     const archive = new Uint8Array([31, 139, 8])
     const created = await new CogniCloudBrowser({ key: "cgb_abc", fetch }).browser.importProfile("Shop account", archive)
     expect(created).toEqual(profile)
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/browser/profiles/import?name=Shop%20account")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/browser/profiles/import?name=Shop%20account")
     expect(calls[0].init.method).toBe("POST")
     expect((calls[0].init.headers as Record<string, string>)["content-type"]).toBe("application/gzip")
     expect(calls[0].init.body).toBe(archive)

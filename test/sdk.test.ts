@@ -27,7 +27,7 @@ const endpoint = {
   name: "Support bot",
   providerId: "azure-openai",
   model: "gpt-5-mini",
-  url: "https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1",
+  url: "https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1",
   credentialPrefix: "cc_live_1234",
   tokenLimit: 1000,
   tokensUsed: 0,
@@ -42,7 +42,7 @@ describe("EndpointClient", () => {
     const client = new EndpointClient({ endpointId: "e1", credential: "cc_live_secret", fetch })
     const result = await client.invoke({ input: "Hi" })
     expect(result).toEqual(answer)
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
     expect(calls[0].init.method).toBe("POST")
     expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer cc_live_secret")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: "Hi" })
@@ -76,7 +76,7 @@ describe("EndpointClient", () => {
     expect(encodeTenant("cognicloud")).toBe("636f676e69636c6f7564")
     const { fetch, calls } = fakeFetch(Response.json(answer))
     await new EndpointClient({ endpointId: "e1", tenant: "acme", credential: "k", fetch }).invoke({ input: "Hi" })
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/61636d65/e1")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/61636d65/e1")
   })
 
   it("calls the invoke URL CogniCloud issued, as it is", async () => {
@@ -112,7 +112,7 @@ describe("CogniCloud endpoints", () => {
     const cc = new CogniCloud({ token: "t", fetch })
     const days = await cc.endpoints.dailyUsage("e1", { from: "2026-10-01", to: "2026-10-20" })
     expect(days).toHaveLength(1)
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/endpoints/e1/usage/daily?from=2026-10-01&to=2026-10-20")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/endpoints/e1/usage/daily?from=2026-10-01&to=2026-10-20")
   })
 
   it("deletes an endpoint without expecting a body", async () => {

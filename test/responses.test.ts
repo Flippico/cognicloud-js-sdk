@@ -45,7 +45,7 @@ describe("EndpointClient.responses", () => {
       tool_choice: "required",
     })
     expect(result).toEqual(answer)
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({
       input: "Check this invoice.",
       instructions: "Be brief.",
@@ -123,7 +123,7 @@ describe("EndpointClient.embeddings", () => {
     const client = new EndpointClient({ endpointId: "e1", credential: "cc_live_secret", fetch })
     const result = await client.embeddings({ input: ["first", "second"], dimensions: 256 })
     expect(result.data[1].embedding).toEqual([0.3, 0.4])
-    expect(calls[0].url).toBe("https://cognicloud.flippi.co/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1/embeddings")
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1/embeddings")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: ["first", "second"], dimensions: 256 })
   })
 })

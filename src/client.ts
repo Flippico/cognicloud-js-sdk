@@ -23,7 +23,7 @@ import type {
 
 /** Options shared by every client. */
 export type ClientOptions = {
-  /** Point at another environment. Default `https://cognicloud.flippi.co/api/v1/ai-gateway`. */
+  /** Point at another environment. Default `https://cognicloud.dev/api/v1/ai-gateway`. */
   baseUrl?: string
   /** `Accept-Language` for localised responses. Default `"en"`. */
   locale?: string
@@ -57,9 +57,9 @@ export type CogniCloudOptions = ClientOptions & {
   token: string
   /** The tenant (workspace) to manage, sent as the `tenant_id` header. Default `"cognicloud"`. */
   tenant?: string
-  /** The browser service's base. Default `https://cognicloud.flippi.co/api/v1/browser`. */
+  /** The browser service's base. Default `https://cognicloud.dev/api/v1/browser`. */
   browserBaseUrl?: string
-  /** The mail service's base. Default `https://cognicloud.flippi.co/api/v1/mail`. */
+  /** The mail service's base. Default `https://cognicloud.dev/api/v1/mail`. */
   mailBaseUrl?: string
 }
 
@@ -71,9 +71,9 @@ export function encodeTenant(tenant: string): string {
 }
 
 const defaults = {
-  baseUrl: "https://cognicloud.flippi.co/api/v1/ai-gateway",
-  browserBaseUrl: "https://cognicloud.flippi.co/api/v1/browser",
-  mailBaseUrl: "https://cognicloud.flippi.co/api/v1/mail",
+  baseUrl: "https://cognicloud.dev/api/v1/ai-gateway",
+  browserBaseUrl: "https://cognicloud.dev/api/v1/browser",
+  mailBaseUrl: "https://cognicloud.dev/api/v1/mail",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -239,7 +239,7 @@ export class EndpointsApi {
 export type CogniCloudBrowserOptions = ClientOptions & {
   /** A browser key from the dashboard (Browser → API keys). It names its workspace, so no tenant is sent. */
   key: string
-  /** Point at another environment. Default `https://cognicloud.flippi.co/api/v1/browser`. */
+  /** Point at another environment. Default `https://cognicloud.dev/api/v1/browser`. */
   browserBaseUrl?: string
 }
 

@@ -193,13 +193,13 @@ try {
 
 | Option | Default | |
 | --- | --- | --- |
-| `baseUrl` | `https://cognicloud.flippi.co/api/v1/ai-gateway` | Point at another environment. |
+| `baseUrl` | `https://cognicloud.dev/api/v1/ai-gateway` | Point at another environment. |
 | `locale` | `"en"` | `Accept-Language` for localised responses. |
 | `timeoutMs` | `30000` | Per request. |
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace) and `browserBaseUrl` (default `https://cognicloud.flippi.co/api/v1/browser`).
+The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace) and `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`).
 
 ## Changes
 
