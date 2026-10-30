@@ -199,7 +199,7 @@ try {
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace) and `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`).
+The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) and `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`).
 
 ## Changes
 
