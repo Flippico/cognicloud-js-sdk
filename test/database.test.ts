@@ -173,6 +173,29 @@ describe("CogniCloud.database", () => {
     expect(header(calls[0], "tenant_id")).toBe("acme")
   })
 
+  it("runs SQL and lists tables as the owner", async () => {
+    const tables = [{ name: "orders", columns: [] }]
+    const { fetch, calls } = fakeFetch(Response.json(result), Response.json({ tables }))
+    const cc = new CogniCloud({ token: "session", tenant: "acme", fetch })
+    const found = await cc.database.query("db1", "SELECT id FROM orders WHERE id = $1", ["a078e7865b1073c4d2c1eaa92a9b5507"])
+    expect(found.rowCount).toBe(1)
+    expect(await cc.database.tables("db1")).toEqual(tables)
+    expect(calls[0]?.url).toBe(`${base}/databases/db1/query`)
+    expect(body(calls[0])).toEqual({
+      sql: "SELECT id FROM orders WHERE id = $1",
+      params: ["a078e7865b1073c4d2c1eaa92a9b5507"],
+    })
+    expect(header(calls[0], "authorization")).toBe("Bearer session")
+    expect(calls[1]?.url).toBe(`${base}/databases/db1/tables`)
+  })
+
+  it("does not repeat an owner query, because it may change data", async () => {
+    const { fetch, calls } = fakeFetch(new Response(null, { status: 503 }))
+    const cc = new CogniCloud({ token: "t", fetch })
+    await expect(cc.database.query("db1", "DELETE FROM orders")).rejects.toMatchObject({ status: 503 })
+    expect(calls).toHaveLength(1)
+  })
+
   it("lists and revokes keys and pages through actions", async () => {
     const { fetch, calls } = fakeFetch(
       Response.json([]),

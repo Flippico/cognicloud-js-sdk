@@ -247,6 +247,30 @@ export class DatabaseApi {
     })
   }
 
+  /**
+   * Runs one SQL statement in your own database as its owner, with `$1`, `$2` for `params`. It has the same limits as a
+   * key. Never retried, because it may change data.
+   */
+  query<T extends DatabaseRow = DatabaseRow>(id: string, sql: string, params: unknown[] = []): Promise<QueryResult<T>> {
+    return send(this.config, {
+      method: "POST",
+      path: `/databases/${encodeURIComponent(id)}/query`,
+      headers: this.headers,
+      body: { sql, params },
+      retry: false,
+    })
+  }
+
+  /** Tables and views in the database's `public` schema. */
+  async tables(id: string): Promise<DatabaseTable[]> {
+    const body = await send<{ tables: DatabaseTable[] }>(this.config, {
+      method: "GET",
+      path: `/databases/${encodeURIComponent(id)}/tables`,
+      headers: this.headers,
+    })
+    return body.tables
+  }
+
   /** Creating and deleting databases and keys, newest first. Queries are not listed. */
   actions(options: DatabaseActionListOptions = {}): Promise<DatabaseActionList> {
     const query = new URLSearchParams()
