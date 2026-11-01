@@ -232,6 +232,19 @@ A signed-in person can run SQL in their own database without a key: `cc.database
 
 `cc.database.list`, `get` and `delete` manage databases, `cc.database.keys.list` and `revoke` manage keys, and `cc.database.actions` lists what was done. Keys are created in the dashboard.
 
+## Web builder
+
+Build a React application and host it at `https://<subdomain>.cognicloud.dev`. Leave out `repoUrl` to start from a Vite + React starter. Each person can have 3 applications.
+
+```ts
+const app = await cc.webBuilder.create({ subdomain: "shop", repoUrl: "https://github.com/acme/shop" })
+
+const { status } = await cc.webBuilder.get(app.id)
+const logs = await cc.webBuilder.logs(app.id)
+```
+
+`create` starts the build and returns at once, with `status` set to `building`. It then becomes `running` or `failed`. `branch`, `buildCommand` and `outputDir` default to `main`, `npm run build` and `dist`. `cc.webBuilder.list`, `redeploy` and `delete` do the rest.
+
 ## Errors
 
 ```ts
@@ -259,7 +272,7 @@ try {
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`) and `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`).
+The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`) and `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`).
 
 ## Changes
 

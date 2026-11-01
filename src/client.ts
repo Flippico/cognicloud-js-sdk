@@ -4,6 +4,7 @@ import { MailApi } from "./mail.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
 import { streamEvents } from "./stream.js"
+import { WebBuilderApi } from "./web-builder.js"
 import type {
   Body,
   CreatedEndpoint,
@@ -64,6 +65,8 @@ export type CogniCloudOptions = ClientOptions & {
   mailBaseUrl?: string
   /** The database service's base. Default `https://cognicloud.dev/api/v1/database`. */
   databaseBaseUrl?: string
+  /** The web builder's base. Default `https://cognicloud.dev/api/v1/web-builder`. */
+  webBuilderBaseUrl?: string
 }
 
 const defaultTenant = "cognicloud"
@@ -78,6 +81,7 @@ const defaults = {
   browserBaseUrl: "https://cognicloud.dev/api/v1/browser",
   mailBaseUrl: "https://cognicloud.dev/api/v1/mail",
   databaseBaseUrl: "https://cognicloud.dev/api/v1/database",
+  webBuilderBaseUrl: "https://cognicloud.dev/api/v1/web-builder",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -289,6 +293,7 @@ export class CogniCloud {
   readonly browser: BrowserApi
   readonly mail: MailApi
   readonly database: DatabaseApi
+  readonly webBuilder: WebBuilderApi
 
   constructor(options: CogniCloudOptions) {
     if (typeof options.token !== "string" || options.token.trim() === "") {
@@ -305,5 +310,6 @@ export class CogniCloud {
     const headers = { authorization: `Bearer ${options.token}`, tenant_id: options.tenant ?? defaultTenant }
     this.mail = new MailApi(mailConfig, headers)
     this.database = new DatabaseApi({ ...httpConfig(options), baseUrl: options.databaseBaseUrl ?? defaults.databaseBaseUrl }, headers)
+    this.webBuilder = new WebBuilderApi({ ...httpConfig(options), baseUrl: options.webBuilderBaseUrl ?? defaults.webBuilderBaseUrl }, headers)
   }
 }
