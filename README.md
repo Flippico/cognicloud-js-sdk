@@ -245,6 +245,20 @@ const logs = await cc.webBuilder.logs(app.id)
 
 `create` starts the build and returns at once, with `status` set to `building`. It then becomes `running` or `failed`. `branch`, `buildCommand` and `outputDir` default to `main`, `npm run build` and `dist`. `cc.webBuilder.list`, `redeploy` and `delete` do the rest.
 
+```ts
+await cc.webBuilder.update(app.id, { branch: "next" })
+await cc.webBuilder.pause(app.id)
+await cc.webBuilder.resume(app.id)
+const requests = await cc.webBuilder.runtimeLogs(app.id)
+const history = await cc.webBuilder.actions({ applicationId: app.id })
+
+await cc.webBuilder.createRepository(app.id, "shop")
+await cc.webBuilder.enableAutoDeploy(app.id)
+await cc.webBuilder.disableAutoDeploy(app.id)
+```
+
+`update` starts a build, and a paused site has `status` set to `paused`. `createRepository` and the auto-deploy methods need a connected GitHub account: `authorizeGithub`, `connectGithub`, `githubRepositories` and `disconnectGithub`.
+
 ## Errors
 
 ```ts

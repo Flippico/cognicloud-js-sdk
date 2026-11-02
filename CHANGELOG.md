@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.0] - 2026-11-02
+
+### Added
+- Web Builder: `update`, `pause`, `resume`, `runtimeLogs`, `createRepository`, `enableAutoDeploy`, `disableAutoDeploy`, `actions`, `authorizeGithub`, `connectGithub`, `githubRepositories` and `disconnectGithub`.
+- `Application.autoDeploy` and the `paused` status.
+
 ## [0.19.0] - 2026-11-01
 
 ### Added
