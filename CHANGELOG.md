@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.22.0] - 2026-11-02
+
+### Added
+- Browser sessions: stored runs that do one step per request. `createStepRun`, `getStepRun`, `runStep`, `stepRunHumanDone`, `reportStepRunUpload`, `sendStepRunMessage`, `continueStepRun` and `stopStepRun`. Needs browser service 0.7.0.
+
 ## [0.21.0] - 2026-11-02
 
 ### Added

@@ -71,6 +71,44 @@ export type AgentRun = {
   finishedAt: string | null
 }
 
+export type CreateStepRunInput = {
+  /** What the agent should do. At most 40,000 characters. Stored encrypted. */
+  task: string
+  /** The AI Gateway endpoint that decides each step, in this workspace. */
+  endpointId: string
+  /** Default 25, at most 100. */
+  maxSteps?: number
+}
+
+export type RunStepInput = {
+  /** The endpoint's credential. Used for this step only, and never stored. */
+  credential: string
+  /** The longest this step may take. Default 120, from 10 to 280. Keep it below your own request limit. */
+  timeoutSeconds?: number
+}
+
+export type StepRun = {
+  id: string
+  sessionId: string
+  endpointId: string
+  status: "ready" | "stepping" | "waiting_for_human" | "waiting_for_upload" | "done" | "failed" | "stopped"
+  maxSteps: number
+  stepsTaken: number
+  steps: AgentRunStep[]
+  /** What to ask the person, while `waiting_for_human`. */
+  humanReason: string | null
+  /** The numbered file field, while `waiting_for_upload`. Null means the page's first file field. */
+  uploadIndex: number | null
+  /** The model's reply, or why the run failed. */
+  result: string | null
+  /** The word on the reply's RESULT line. */
+  marker: string | null
+  errorCode: string | null
+  createdAt: string
+  updatedAt: string
+  finishedAt: string | null
+}
+
 /** Starts, lists, reads and stops browser sessions that agents drive over the Chrome DevTools Protocol. */
 export class BrowserSessionsApi {
   private readonly config: HttpConfig
@@ -161,6 +199,62 @@ export class BrowserSessionsApi {
       method: "GET",
       path: `/sessions/${encodeURIComponent(id)}/agent-runs/${encodeURIComponent(runId)}`,
       headers: this.headers,
+    })
+  }
+
+  /** Stores a run that advances one request at a time. Nothing runs until `runStep`. The task is stored encrypted. */
+  createStepRun(id: string, input: CreateStepRunInput): Promise<StepRun> {
+    return send(this.config, { method: "POST", path: `/sessions/${encodeURIComponent(id)}/step-runs`, headers: this.headers, body: input, retry: false })
+  }
+
+  getStepRun(id: string, runId: string): Promise<StepRun> {
+    return send(this.config, { method: "GET", path: this.stepRunPath(id, runId), headers: this.headers })
+  }
+
+  /**
+   * Runs one step within this request. A step that fails or runs out of time still resolves: read `status` and the
+   * step's `error`. Never retried, because a step can spend model tokens and change the page.
+   */
+  runStep(id: string, runId: string, input: RunStepInput): Promise<StepRun> {
+    return this.stepRunPost(id, runId, "step", input)
+  }
+
+  /** The person finished what `humanReason` asked. */
+  stepRunHumanDone(id: string, runId: string): Promise<StepRun> {
+    return this.stepRunPost(id, runId, "human-done")
+  }
+
+  /** Call after putting the file on the page over the session's `cdpUrl`, with `error` if that failed. */
+  reportStepRunUpload(id: string, runId: string, input: { error?: string } = {}): Promise<StepRun> {
+    return this.stepRunPost(id, runId, "upload", input)
+  }
+
+  /** The next step reads it. A run waiting for the person becomes ready. */
+  sendStepRunMessage(id: string, runId: string, text: string): Promise<StepRun> {
+    return this.stepRunPost(id, runId, "messages", { text })
+  }
+
+  /** Gives a run that is done its next task, in the same conversation and browser. */
+  continueStepRun(id: string, runId: string, input: { task: string; maxSteps?: number }): Promise<StepRun> {
+    return this.stepRunPost(id, runId, "continue", input)
+  }
+
+  /** The session keeps running. */
+  stopStepRun(id: string, runId: string): Promise<StepRun> {
+    return this.stepRunPost(id, runId, "stop")
+  }
+
+  private stepRunPath(id: string, runId: string): string {
+    return `/sessions/${encodeURIComponent(id)}/step-runs/${encodeURIComponent(runId)}`
+  }
+
+  private stepRunPost(id: string, runId: string, action: string, body?: unknown): Promise<StepRun> {
+    return send(this.config, {
+      method: "POST",
+      path: `${this.stepRunPath(id, runId)}/${action}`,
+      headers: this.headers,
+      ...(body === undefined ? {} : { body }),
+      retry: false,
     })
   }
 

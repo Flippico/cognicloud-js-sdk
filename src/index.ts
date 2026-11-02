@@ -7,7 +7,10 @@ export type {
   BrowserPage,
   BrowserPageAction,
   BrowserPageElement,
+  CreateStepRunInput,
+  RunStepInput,
   StartAgentRunInput,
+  StepRun,
 } from "./browser.js"
 export { DatabaseApi, DatabaseDataApi, DatabaseKeysApi, DatabaseSelectQuery, DatabaseTableApi } from "./database.js"
 export { MailApi, MailDomainsApi } from "./mail.js"

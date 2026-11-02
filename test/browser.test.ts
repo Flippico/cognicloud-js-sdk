@@ -1,6 +1,39 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud as Client } from "../src/index.js"
 
+describe("step runs", () => {
+  it("calls each route once, never retrying a step", async () => {
+    const calls: { url: string; init: RequestInit }[] = []
+    const run = { id: "r1", status: "ready" }
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return Response.json(run)
+    }) as typeof globalThis.fetch
+    const sessions = new Client({ token: "t", fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser.sessions
+    await sessions.createStepRun("s1", { task: "Go", endpointId: "e1" })
+    await sessions.getStepRun("s1", "r1")
+    await sessions.runStep("s1", "r1", { credential: "c", timeoutSeconds: 60 })
+    await sessions.stepRunHumanDone("s1", "r1")
+    await sessions.reportStepRunUpload("s1", "r1", { error: "no field" })
+    await sessions.sendStepRunMessage("s1", "r1", "Hi")
+    await sessions.continueStepRun("s1", "r1", { task: "Next" })
+    await sessions.stopStepRun("s1", "r1")
+    const one = "https://b.test/v1/browser/sessions/s1/step-runs"
+    expect(calls.map((call) => `${call.init.method} ${call.url}`)).toEqual([
+      `POST ${one}`,
+      `GET ${one}/r1`,
+      `POST ${one}/r1/step`,
+      `POST ${one}/r1/human-done`,
+      `POST ${one}/r1/upload`,
+      `POST ${one}/r1/messages`,
+      `POST ${one}/r1/continue`,
+      `POST ${one}/r1/stop`,
+    ])
+    expect(JSON.parse(String(calls[2]?.init.body))).toEqual({ credential: "c", timeoutSeconds: 60 })
+    expect(JSON.parse(String(calls[5]?.init.body))).toEqual({ text: "Hi" })
+  })
+})
+
 describe("page control and agent runs", () => {
   const page = { url: "https://a.test/", title: "A", text: "", elements: [], truncated: false, screenshot: null }
   const run = { id: "r1", sessionId: "s1", status: "running", maxSteps: 25, steps: [], result: null, errorCode: null, startedAt: "t", finishedAt: null }

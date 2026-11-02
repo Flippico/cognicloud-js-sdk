@@ -174,6 +174,10 @@ const run = await cc.browser.sessions.startAgentRun(session.id, {
 })
 const { status, result } = await cc.browser.sessions.getAgentRun(session.id, run.id)
 
+// For serverless callers: a stored run that does one step per request.
+const stored = await cc.browser.sessions.createStepRun(session.id, { task: "Find the price", endpointId })
+const after = await cc.browser.sessions.runStep(session.id, stored.id, { credential, timeoutSeconds: 120 })
+
 await cc.browser.sessions.stop(session.id)
 ```
 
