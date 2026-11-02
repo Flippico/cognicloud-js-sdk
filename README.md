@@ -163,6 +163,17 @@ const page = browser.contexts()[0].pages()[0] ?? (await browser.contexts()[0].ne
 await page.goto("https://example.com")
 
 await browser.close()
+const page = await cc.browser.sessions.readPage(session.id)
+await cc.browser.sessions.act(session.id, { type: "navigate", url: "https://example.com" })
+await cc.browser.sessions.act(session.id, { type: "click", index: 3 })
+
+const run = await cc.browser.sessions.startAgentRun(session.id, {
+  task: "Find the price of the Pro plan",
+  endpointId,
+  credential,
+})
+const { status, result } = await cc.browser.sessions.getAgentRun(session.id, run.id)
+
 await cc.browser.sessions.stop(session.id)
 ```
 

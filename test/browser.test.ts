@@ -1,4 +1,34 @@
 import { describe, expect, it } from "vitest"
+import { CogniCloud as Client } from "../src/index.js"
+
+describe("page control and agent runs", () => {
+  const page = { url: "https://a.test/", title: "A", text: "", elements: [], truncated: false, screenshot: null }
+  const run = { id: "r1", sessionId: "s1", status: "running", maxSteps: 25, steps: [], result: null, errorCode: null, startedAt: "t", finishedAt: null }
+
+  it("reads, acts and runs an agent at the session's paths", async () => {
+    const calls: { url: string; init: RequestInit }[] = []
+    const responses = [page, page, run, run, run]
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return Response.json(responses.shift())
+    }) as typeof globalThis.fetch
+    const sessions = new Client({ token: "t", fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser.sessions
+    await sessions.readPage("s1", { screenshot: true })
+    await sessions.act("s1", { type: "click", index: 3 })
+    await sessions.startAgentRun("s1", { task: "Find it", endpointId: "e1", credential: "c" })
+    await sessions.getAgentRun("s1", "r1")
+    await sessions.stopAgentRun("s1", "r1")
+    expect(calls.map((call) => `${call.init.method} ${call.url}`)).toEqual([
+      "GET https://b.test/v1/browser/sessions/s1/page?screenshot=true",
+      "POST https://b.test/v1/browser/sessions/s1/page/actions",
+      "POST https://b.test/v1/browser/sessions/s1/agent-runs",
+      "GET https://b.test/v1/browser/sessions/s1/agent-runs/r1",
+      "POST https://b.test/v1/browser/sessions/s1/agent-runs/r1/stop",
+    ])
+    expect(JSON.parse(String(calls[1]?.init.body))).toEqual({ type: "click", index: 3 })
+    expect(JSON.parse(String(calls[2]?.init.body))).toEqual({ task: "Find it", endpointId: "e1", credential: "c" })
+  })
+})
 import { CogniCloud, CogniCloudError } from "../src/index.js"
 
 type Call = { url: string; init: RequestInit }

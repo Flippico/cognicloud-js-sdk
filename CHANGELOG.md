@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.21.0] - 2026-11-02
+
+### Added
+- Browser sessions: `readPage` and `act` control a page without a CDP client. `startAgentRun`, `getAgentRun` and `stopAgentRun` run an agent in the service. Needs browser service 0.6.0.
+
 ## [0.20.0] - 2026-11-02
 
 ### Added

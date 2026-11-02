@@ -1,6 +1,14 @@
 export { CogniCloud, CogniCloudBrowser, CogniCloudDatabase, EndpointClient, EndpointsApi, encodeTenant } from "./client.js"
 export type { ClientOptions, CogniCloudBrowserOptions, CogniCloudDatabaseOptions, CogniCloudOptions, EndpointClientOptions } from "./client.js"
 export { BrowserApi, BrowserSessionsApi } from "./browser.js"
+export type {
+  AgentRun,
+  AgentRunStep,
+  BrowserPage,
+  BrowserPageAction,
+  BrowserPageElement,
+  StartAgentRunInput,
+} from "./browser.js"
 export { DatabaseApi, DatabaseDataApi, DatabaseKeysApi, DatabaseSelectQuery, DatabaseTableApi } from "./database.js"
 export { MailApi, MailDomainsApi } from "./mail.js"
 export { WebBuilderApi } from "./web-builder.js"
