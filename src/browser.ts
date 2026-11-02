@@ -99,6 +99,8 @@ export type StepRun = {
   humanReason: string | null
   /** The numbered file field, while `waiting_for_upload`. Null means the page's first file field. */
   uploadIndex: number | null
+  /** The stored file the agent uploads by itself. Null means a step pauses at `waiting_for_upload`. */
+  fileName: string | null
   /** The model's reply, or why the run failed. */
   result: string | null
   /** The word on the reply's RESULT line. */
@@ -124,7 +126,7 @@ export class BrowserSessionsApi {
     return send(this.config, { method: "POST", path: "/sessions", headers: this.headers, body: input, retry: false })
   }
 
-  /** Newest first, with the workspace's concurrency. */
+  /** Your sessions, newest first, with how many are running and how many slots the service has free. */
   list(): Promise<BrowserSessionList> {
     return send(this.config, { method: "GET", path: "/sessions", headers: this.headers })
   }
@@ -229,6 +231,20 @@ export class BrowserSessionsApi {
     return this.stepRunPost(id, runId, "upload", input)
   }
 
+  /**
+   * Stores the file, encrypted, up to 10 MB. When the agent reaches a file field it uploads this file by itself,
+   * without pausing at `waiting_for_upload`. Sending another replaces it.
+   */
+  setStepRunFile(id: string, runId: string, name: string, file: Uint8Array): Promise<StepRun> {
+    return send(this.config, {
+      method: "POST",
+      path: `${this.stepRunPath(id, runId)}/file?name=${encodeURIComponent(name)}`,
+      headers: this.headers,
+      raw: { body: file as BodyInit, contentType: "application/octet-stream" },
+      retry: false,
+    })
+  }
+
   /** The next step reads it. A run waiting for the person becomes ready. */
   sendStepRunMessage(id: string, runId: string, text: string): Promise<StepRun> {
     return this.stepRunPost(id, runId, "messages", { text })
@@ -304,5 +320,9 @@ export class BrowserApi {
   /** Saved profiles, newest first. Save one from a running session with `browser.sessions.saveProfile`. */
   profiles(): Promise<BrowserProfile[]> {
     return send(this.config, { method: "GET", path: "/profiles", headers: this.headers })
+  }
+
+  deleteProfile(id: string): Promise<void> {
+    return send(this.config, { method: "DELETE", path: `/profiles/${encodeURIComponent(id)}`, headers: this.headers, retry: false })
   }
 }

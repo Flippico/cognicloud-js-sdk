@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud as Client } from "../src/index.js"
 
+describe("files and profiles", () => {
+  it("stores a run's file as the raw body and deletes a profile", async () => {
+    const calls: { url: string; init: RequestInit }[] = []
+    const answers = [Response.json({ id: "r1", fileName: "my cv.pdf" }), new Response(null, { status: 204 })]
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return answers.shift()!
+    }) as typeof globalThis.fetch
+    const browser = new Client({ token: "t", fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser
+    const bytes = new Uint8Array([1, 2, 3])
+    expect((await browser.sessions.setStepRunFile("s1", "r1", "my cv.pdf", bytes)).fileName).toBe("my cv.pdf")
+    expect(calls[0]?.url).toBe("https://b.test/v1/browser/sessions/s1/step-runs/r1/file?name=my%20cv.pdf")
+    expect(calls[0]?.init.body).toBe(bytes)
+    await browser.deleteProfile("p1")
+    expect(`${calls[1]?.init.method} ${calls[1]?.url}`).toBe("DELETE https://b.test/v1/browser/profiles/p1")
+  })
+})
+
 describe("step runs", () => {
   it("calls each route once, never retrying a step", async () => {
     const calls: { url: string; init: RequestInit }[] = []

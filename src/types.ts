@@ -177,7 +177,7 @@ export type BrowserSession = {
 
 export type BrowserSessionList = {
   items: BrowserSession[]
-  concurrency: { active: number; limit: number }
+  concurrency: { active: number; limit: number; available?: number }
 }
 
 export type CreateBrowserSessionInput = {

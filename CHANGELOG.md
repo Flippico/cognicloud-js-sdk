@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.0] - 2026-11-02
+
+### Added
+- `browser.sessions.setStepRunFile` gives a stored run the file its agent uploads, and `StepRun.fileName` names it. `browser.deleteProfile` deletes a saved profile. Needs browser service 0.8.0.
+- Session lists give `concurrency.available`, the slots free on the service. `concurrency.active` now counts only your own sessions.
+
 ## [0.22.0] - 2026-11-02
 
 ### Added
