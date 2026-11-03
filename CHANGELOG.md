@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.24.0] - Unreleased
+
+### Added
+- `browser.sessions.create({ headful: true })` starts a visible Chrome window for sites that turn headless Chrome away. Needs browser service 0.10.0.
+- `agents`: `list`, `get`, `create`, `update`, `delete`, `rotateCredential`, `keys.list`, `keys.revoke` and `actions`. `publish` and `unpublish` are planned and answer `503`.
+- `skills`: `list`, `get`, `create`, `update`, `delete` and `versions`.
+- `runs`: `start`, `get`, `list`, `stop` and `runAndWait`, which polls until the run is no longer `running` and throws a `timeout` error after `timeoutMs`. Needs agents service 0.2.0.
+- `marketplace`: `listTemplates`, `getTemplate` and `actions`.
+- `agentsBaseUrl` and `marketplaceBaseUrl` options. A client made with an agent's `ccag_` credential sends no `tenant_id` and can use only that agent's runs.
+
 ## [0.23.0] - 2026-11-02
 
 ### Added

@@ -274,6 +274,62 @@ await cc.webBuilder.disableAutoDeploy(app.id)
 
 `update` starts a build, and a paused site has `status` set to `paused`. `createRepository` and the auto-deploy methods need a connected GitHub account: `authorizeGithub`, `connectGithub`, `githubRepositories` and `disconnectGithub`.
 
+## Agents
+
+An agent follows its instructions and skills, and an AI Gateway endpoint of your workspace decides each step. Tools arrive in later releases.
+
+```ts
+const skill = await cc.skills.create({ name: "Cite", description: "Cite sources", body: "Always name your sources." })
+
+const { agent, credential } = await cc.agents.create({
+  name: "Researcher",
+  endpointId: endpoint.id,
+  instructions: "Answer research questions briefly.",
+  tools: [],
+  maxSteps: 10,
+  timeoutSeconds: 300,
+  skillIds: [skill.id],
+})
+```
+
+`credential.secret` is the agent's `ccag_` credential, shown only here; `cc.agents.rotateCredential(agent.id)` issues a new one. `cc.agents.list`, `get`, `update` (`status: "paused"` pauses the agent, `databaseId: null` clears its database) and `delete` do the rest. `cc.skills.list`, `get`, `update`, `delete` and `versions` manage skills; every change keeps the previous version. `cc.agents.keys.list` and `revoke` manage `cga_` keys, and `cc.agents.actions({ limit, cursor })` lists what was done. `cc.agents.publish` and `unpublish` are planned and answer `503` today.
+
+### Runs
+
+```ts
+const run = await cc.runs.runAndWait(agent.id, "What changed in KSeF this month?")
+if (run.status === "completed") console.log(run.output)
+else console.log(run.errorCode, run.errorMessage)
+```
+
+`runAndWait` starts a run and polls it every `pollIntervalMs` (default `2000`) until it is `completed`, `failed` or `stopped`, and returns it. It throws a `CogniCloudError` with code `timeout` when `timeoutMs` (default `900000`) passes first; the run keeps going until it ends or you stop it. To drive a run yourself:
+
+```ts
+const started = await cc.runs.start(agent.id, "Summarise today's news")
+const current = await cc.runs.get(started.id)
+const page = await cc.runs.list(agent.id, { limit: 20 })
+await cc.runs.stop(started.id)
+```
+
+Each step in `run.steps` has `thought`, `tool`, `summary` and `error`. A failed run has `errorCode` `max_steps`, `timeout`, `model_error`, `invalid_answer` or `interrupted`. Starting a run is refused with `409 agent_paused`, `422 endpoint_missing`, `429 limit_reached` (3 runs at a time) or `503`.
+
+A client made with the agent's credential needs no tenant and can use only that agent's runs; other calls to the agents service are refused with `403 forbidden`. Marketplace calls need the signed-in person's session token; `ccag_` and `cga_` keys get `401`.
+
+```ts
+const runner = new CogniCloud({ token: process.env.AGENT_CREDENTIAL! })
+const run = await runner.runs.runAndWait(agentId, "Check the status page")
+```
+
+### Marketplace
+
+```ts
+const templates = await cc.marketplace.listTemplates({ category: "research" })
+const template = await cc.marketplace.getTemplate(templates[0].slug)
+const history = await cc.marketplace.actions({ limit: 20 })
+```
+
+Create an agent from a template by passing its `templateSlug` to `cc.agents.create`. Marketplace calls need the signed-in person's session token; `ccag_` and `cga_` keys get `401`.
+
 ## Errors
 
 ```ts
@@ -301,11 +357,11 @@ try {
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`) and `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`).
+The `CogniCloud` client also takes `token` (the signed-in person's Amadeus session token), `tenant` (the workspace, sent as the `tenant_id` header; default `"cognicloud"`, the platform workspace), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`), `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`), `agentsBaseUrl` (default `https://cognicloud.dev/api/v1/agents`) and `marketplaceBaseUrl` (default `https://cognicloud.dev/api/v1/marketplace`).
 
 ## Changes
 
-See [CHANGELOG.md](./CHANGELOG.md). Agents, scraping, vault and activity are planned for later versions.
+See [CHANGELOG.md](./CHANGELOG.md). Agent tools, publishing to the marketplace, scraping, vault and activity are planned for later versions.
 
 Source: https://github.com/Flippico/cognicloud-js-sdk
 

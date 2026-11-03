@@ -193,6 +193,8 @@ export type CreateBrowserSessionInput = {
   solveCaptchas?: boolean
   /** Recording is not available yet; leave unset or `false`. */
   recording?: boolean
+  /** A visible Chrome window instead of a headless one, for sites that turn headless Chrome away. Needs browser service 0.10.0. */
+  headful?: boolean
 }
 
 export type ProxyCountry = { code: string; name: string }
@@ -370,4 +372,174 @@ export type DatabaseSelect = {
   order: DatabaseOrder[]
   limit?: number
   offset?: number
+}
+
+export type Agent = {
+  id: string
+  name: string
+  description: string
+  endpointId: string
+  instructions: string
+  tools: string[]
+  databaseId: string | null
+  maxSteps: number
+  timeoutSeconds: number
+  status: "active" | "paused"
+  /** Where runs of this agent are started with its `ccag_` credential. */
+  invokeUrl: string
+  credentialPrefix: string
+  templateSlug: string | null
+  skillIds: string[]
+  visibility: "private" | "public"
+  listingSlug: string | null
+  publishedVersion: number | null
+  hasUnpublishedChanges: boolean
+  createdAt: string
+}
+
+export type CreateAgentInput = {
+  name: string
+  description?: string
+  /** The AI Gateway endpoint that decides each step, in this workspace. */
+  endpointId: string
+  instructions: string
+  tools: string[]
+  databaseId?: string | null
+  maxSteps: number
+  timeoutSeconds: number
+  skillIds?: string[]
+  templateSlug?: string
+}
+
+/** A field left out stays as it is. `databaseId: null` clears the database. */
+export type UpdateAgentInput = Partial<Omit<CreateAgentInput, "templateSlug">> & { status?: "active" | "paused" }
+
+export type CreatedAgent = {
+  agent: Agent
+  /** The agent's `ccag_` credential, shown once. */
+  credential: { secret: string }
+}
+
+export type PublishAgentInput = {
+  category: string
+  publisherName: string
+  language: string
+}
+
+export type Skill = {
+  id: string
+  name: string
+  description: string
+  body: string
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreateSkillInput = { name: string; description: string; body: string }
+
+/** A field left out stays as it is. Each change adds a version. */
+export type UpdateSkillInput = Partial<CreateSkillInput>
+
+export type SkillVersion = {
+  version: number
+  name: string
+  description: string
+  body: string
+  createdAt: string
+}
+
+export type AgentKey = {
+  id: string
+  name: string
+  /** The first characters of the `cga_` key, to tell keys apart. */
+  prefix: string
+  createdAt: string
+  lastUsedAt: string | null
+}
+
+export type AgentAction = {
+  id: string
+  action: string
+  subjectId: string | null
+  startedAt: string
+  finishedAt: string | null
+  durationMs: number | null
+  outcome: string
+  errorCode: string | null
+}
+
+export type AgentActionList = {
+  items: AgentAction[]
+  /** Pass as `cursor` for the next page. Null on the last page. */
+  nextCursor: string | null
+}
+
+export type PageOptions = {
+  /** Default 50, at most 200. */
+  limit?: number
+  cursor?: string
+}
+
+export type RunStatus = "running" | "completed" | "failed" | "stopped"
+
+export type RunErrorCode = "max_steps" | "timeout" | "model_error" | "invalid_answer" | "interrupted" | "stopped"
+
+export type RunStep = {
+  number: number
+  thought: string
+  tool: string | null
+  summary: string
+  error: string | null
+}
+
+/** One run of an agent from the agents service. */
+export type Run = {
+  id: string
+  agentId: string
+  status: RunStatus
+  input: string
+  /** The agent's answer, once `completed`. */
+  output: string | null
+  steps: RunStep[]
+  errorCode: RunErrorCode | null
+  errorMessage: string | null
+  maxSteps: number
+  timeoutSeconds: number
+  createdAt: string
+  finishedAt: string | null
+}
+
+export type RunList = {
+  items: Run[]
+  nextCursor: string | null
+}
+
+export type RunAndWaitOptions = {
+  /** Default `2000`. */
+  pollIntervalMs?: number
+  /** Default `900000` (15 minutes). The run keeps going on the service after this; stop it with `runs.stop`. */
+  timeoutMs?: number
+}
+
+export type AgentTemplate = {
+  slug: string
+  kind: string
+  version: number
+  language: string | null
+  name: string
+  summary: string
+  description: string
+  category: string
+  publisher: { name: string; workspace?: string }
+  tools: string[]
+  instructions: string
+  maxSteps: number
+  timeoutSeconds: number
+  skills: { name: string; description: string; body: string }[]
+}
+
+export type TemplateListOptions = {
+  /** `research`, `monitoring`, `operations` or `data`. */
+  category?: string
 }

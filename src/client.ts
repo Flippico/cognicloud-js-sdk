@@ -1,6 +1,8 @@
+import { AgentsApi, RunsApi, SkillsApi } from "./agents.js"
 import { BrowserApi } from "./browser.js"
 import { DatabaseApi, DatabaseDataApi } from "./database.js"
 import { MailApi } from "./mail.js"
+import { MarketplaceApi } from "./marketplace.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
 import { streamEvents } from "./stream.js"
@@ -67,6 +69,10 @@ export type CogniCloudOptions = ClientOptions & {
   databaseBaseUrl?: string
   /** The web builder's base. Default `https://cognicloud.dev/api/v1/web-builder`. */
   webBuilderBaseUrl?: string
+  /** The agents service's base, for agents, skills and runs. Default `https://cognicloud.dev/api/v1/agents`. */
+  agentsBaseUrl?: string
+  /** The marketplace's base. Default `https://cognicloud.dev/api/v1/marketplace`. */
+  marketplaceBaseUrl?: string
 }
 
 const defaultTenant = "cognicloud"
@@ -82,6 +88,8 @@ const defaults = {
   mailBaseUrl: "https://cognicloud.dev/api/v1/mail",
   databaseBaseUrl: "https://cognicloud.dev/api/v1/database",
   webBuilderBaseUrl: "https://cognicloud.dev/api/v1/web-builder",
+  agentsBaseUrl: "https://cognicloud.dev/api/v1/agents",
+  marketplaceBaseUrl: "https://cognicloud.dev/api/v1/marketplace",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -294,6 +302,10 @@ export class CogniCloud {
   readonly mail: MailApi
   readonly database: DatabaseApi
   readonly webBuilder: WebBuilderApi
+  readonly agents: AgentsApi
+  readonly skills: SkillsApi
+  readonly runs: RunsApi
+  readonly marketplace: MarketplaceApi
 
   constructor(options: CogniCloudOptions) {
     if (typeof options.token !== "string" || options.token.trim() === "") {
@@ -311,5 +323,12 @@ export class CogniCloud {
     this.mail = new MailApi(mailConfig, headers)
     this.database = new DatabaseApi({ ...httpConfig(options), baseUrl: options.databaseBaseUrl ?? defaults.databaseBaseUrl }, headers)
     this.webBuilder = new WebBuilderApi({ ...httpConfig(options), baseUrl: options.webBuilderBaseUrl ?? defaults.webBuilderBaseUrl }, headers)
+    const agentHeaders =
+      options.tenant === undefined && /^(ccag|cga)_/.test(options.token) ? { authorization: `Bearer ${options.token}` } : headers
+    const agentsConfig = { ...httpConfig(options), baseUrl: options.agentsBaseUrl ?? defaults.agentsBaseUrl }
+    this.agents = new AgentsApi(agentsConfig, agentHeaders)
+    this.skills = new SkillsApi(agentsConfig, agentHeaders)
+    this.runs = new RunsApi(agentsConfig, agentHeaders)
+    this.marketplace = new MarketplaceApi({ ...httpConfig(options), baseUrl: options.marketplaceBaseUrl ?? defaults.marketplaceBaseUrl }, agentHeaders)
   }
 }
