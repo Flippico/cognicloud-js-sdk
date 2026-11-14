@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud, CogniCloudError } from "../src/index.js"
+import { KEY, KEYS, PRODUCT_KEYS } from "./keys.js"
 
-const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
 
 type Call = { url: string; init: RequestInit }
 
@@ -78,14 +78,14 @@ const base = "https://cognicloud.dev/api/v1/agents"
 describe("CogniCloud.agents", () => {
   it("creates an agent with the session and tenant", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ agent, credential: { secret: "ccag_x_y" } }, { status: 201 }))
-    const client = new CogniCloud({ apiKey: KEY, fetch })
+    const client = new CogniCloud({ ...KEYS, fetch })
     const input = { name: "Researcher", endpointId: "e1", instructions: "Find things.", tools: [], maxSteps: 10, timeoutSeconds: 300 }
     const created = await client.agents.create(input)
     expect(created.credential.secret).toBe("ccag_x_y")
     expect(lines(calls)).toEqual([`POST ${base}/agents`])
     expect(bodyOf(calls[0])).toEqual(input)
     const headers = new Headers(calls[0]?.init.headers)
-    expect(headers.get("authorization")).toBe(`Bearer ${KEY}`)
+    expect(headers.get("authorization")).toBe(`Bearer ${PRODUCT_KEYS.agents}`)
     expect(headers.get("tenant_id")).toBeNull()
   })
 
@@ -97,7 +97,7 @@ describe("CogniCloud.agents", () => {
       new Response(null, { status: 204 }),
       Response.json({ secret: "ccag_new" }),
     )
-    const api = new CogniCloud({ apiKey: KEY, fetch }).agents
+    const api = new CogniCloud({ ...KEYS, fetch }).agents
     expect(await api.list()).toEqual([agent])
     await api.get("a1")
     expect((await api.update("a1", { status: "paused", databaseId: null })).status).toBe("paused")
@@ -118,7 +118,7 @@ describe("CogniCloud.agents", () => {
       Response.json({ error: "unavailable", message: "planned" }, { status: 503 }),
       Response.json({ error: "unavailable", message: "planned" }, { status: 503 }),
     )
-    const api = new CogniCloud({ apiKey: KEY, fetch }).agents
+    const api = new CogniCloud({ ...KEYS, fetch }).agents
     const input = { category: "research", publisherName: "Acme", language: "en" }
     const published = await api.publish("a1", input).catch((caught: unknown) => caught)
     expect((published as CogniCloudError).status).toBe(503)
@@ -129,7 +129,7 @@ describe("CogniCloud.agents", () => {
 
   it("lists actions", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ items: [], nextCursor: null }), Response.json({ items: [], nextCursor: null }))
-    const api = new CogniCloud({ apiKey: KEY, fetch, agentsBaseUrl: "https://agents.test/v1/agents" }).agents
+    const api = new CogniCloud({ ...KEYS, fetch, agentsBaseUrl: "https://agents.test/v1/agents" }).agents
     await api.actions()
     await api.actions({ limit: 5, cursor: "c|1" })
     expect(lines(calls)).toEqual([
@@ -149,7 +149,7 @@ describe("CogniCloud.skills", () => {
       Response.json([{ version: 1, name: "Cite", description: "Cite sources", body: "Always cite.", createdAt: "2026-11-03T10:00:00Z" }]),
       new Response(null, { status: 204 }),
     )
-    const api = new CogniCloud({ apiKey: KEY, fetch }).skills
+    const api = new CogniCloud({ ...KEYS, fetch }).skills
     expect(await api.list()).toEqual([skill])
     await api.create({ name: "Cite", description: "Cite sources", body: "Always cite." })
     await api.get("s1")
@@ -178,7 +178,7 @@ describe("CogniCloud.runs", () => {
       Response.json(run("running")),
       Response.json(run("stopped")),
     )
-    const api = new CogniCloud({ apiKey: KEY, fetch }).runs
+    const api = new CogniCloud({ ...KEYS, fetch }).runs
     expect((await api.start("a1", "Hi")).status).toBe("running")
     expect((await api.list("a1")).nextCursor).toBe("next")
     await api.list("a1", { limit: 10, cursor: "next" })
@@ -196,7 +196,7 @@ describe("CogniCloud.runs", () => {
 
   it("does not retry a start and reports the service's refusal", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ error: "limit_reached", message: "3 running" }, { status: 429 }))
-    const error = await new CogniCloud({ apiKey: KEY, fetch }).runs.start("a1", "Hi").catch((caught: unknown) => caught)
+    const error = await new CogniCloud({ ...KEYS, fetch }).runs.start("a1", "Hi").catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
     expect((error as CogniCloudError).code).toBe("limit_reached")
     expect(calls).toHaveLength(1)
@@ -208,7 +208,7 @@ describe("CogniCloud.runs", () => {
       Response.json(run("running")),
       Response.json(run("completed", "Done.")),
     )
-    const api = new CogniCloud({ apiKey: KEY, fetch }).runs
+    const api = new CogniCloud({ ...KEYS, fetch }).runs
     const finished = await api.runAndWait("a1", "Hi", { pollIntervalMs: 1 })
     expect(finished.status).toBe("completed")
     expect(finished.output).toBe("Done.")
@@ -217,7 +217,7 @@ describe("CogniCloud.runs", () => {
 
   it("returns a failed run without throwing", async () => {
     const { fetch } = fakeFetch(Response.json({ ...run("failed"), errorCode: "max_steps" }, { status: 202 }))
-    const finished = await new CogniCloud({ apiKey: KEY, fetch }).runs.runAndWait("a1", "Hi", { pollIntervalMs: 1 })
+    const finished = await new CogniCloud({ ...KEYS, fetch }).runs.runAndWait("a1", "Hi", { pollIntervalMs: 1 })
     expect(finished.errorCode).toBe("max_steps")
   })
 
@@ -225,7 +225,7 @@ describe("CogniCloud.runs", () => {
     const responses = [Response.json(run("running"), { status: 202 })]
     for (let index = 0; index < 50; index++) responses.push(Response.json(run("running")))
     const { fetch } = fakeFetch(...responses)
-    const error = await new CogniCloud({ apiKey: KEY, fetch }).runs
+    const error = await new CogniCloud({ ...KEYS, fetch }).runs
       .runAndWait("a1", "Hi", { pollIntervalMs: 5, timeoutMs: 20 })
       .catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
@@ -237,7 +237,7 @@ describe("CogniCloud.runs", () => {
     const responses = [Response.json(run("running"), { status: 202 })]
     for (let index = 0; index < 5; index++) responses.push(Response.json(run("running")))
     const { fetch, calls } = fakeFetch(...responses)
-    const error = await new CogniCloud({ apiKey: KEY, fetch }).runs
+    const error = await new CogniCloud({ ...KEYS, fetch }).runs
       .runAndWait("a1", "Hi", { timeoutMs: 1_000 })
       .catch((caught: unknown) => caught)
     expect((error as CogniCloudError).code).toBe("timeout")
@@ -253,32 +253,27 @@ describe("CogniCloud.runs", () => {
       if (calls.length === 1) return Response.json(run("running"), { status: 202 })
       return Response.json(performance.now() - started >= 900 ? run("completed", "Done.") : run("running"))
     }) as typeof globalThis.fetch
-    const finished = await new CogniCloud({ apiKey: KEY, fetch }).runs.runAndWait("a1", "Hi", {
+    const finished = await new CogniCloud({ ...KEYS, fetch }).runs.runAndWait("a1", "Hi", {
       pollIntervalMs: 600,
       timeoutMs: 1_000,
     })
     expect(finished.status).toBe("completed")
   })
 
-  it("sends an agent key to every product, with no tenant header", async () => {
-    const agentKey = `cc_ag_636f676e69636c6f7564_${"c".repeat(64)}`
-    const { fetch, calls } = fakeFetch(
-      Response.json(run("running")),
-      Response.json({ error: "forbidden", message: "This key does not reach that product." }, { status: 403 }),
-    )
-    const client = new CogniCloud({ apiKey: agentKey, fetch })
+  it("sends the agents key with the account key, and needs a product key for every other product", async () => {
+    const { fetch, calls } = fakeFetch(Response.json(run("running")))
+    const client = new CogniCloud({ accountKey: KEY, productKeys: { agents: PRODUCT_KEYS.agents }, fetch })
     await client.runs.get("r1")
-    const error = await client.browser.countries().catch((caught: unknown) => caught)
-    expect((error as CogniCloudError).status).toBe(403)
-    for (const call of calls) {
-      const headers = new Headers(call.init.headers)
-      expect(headers.get("authorization")).toBe(`Bearer ${agentKey}`)
-      expect(headers.get("tenant_id")).toBeNull()
-    }
+    const headers = new Headers(calls[0].init.headers)
+    expect(headers.get("authorization")).toBe(`Bearer ${PRODUCT_KEYS.agents}`)
+    expect(headers.get("x-cognicloud-account-key")).toBe(KEY)
+    expect(headers.get("tenant_id")).toBeNull()
+    expect(() => client.browser).toThrow(expect.objectContaining({ code: "missing_product_key" }))
   })
 
   it("refuses a retired agent credential before any request", () => {
-    expect(() => new CogniCloud({ apiKey: "ccag_6163_abc" })).toThrow(/ccag_ were retired/)
+    expect(() => new CogniCloud({ accountKey: "ccag_6163_abc" })).toThrow(/ccag_ were retired/)
+    expect(() => new CogniCloud({ accountKey: KEY, productKeys: { agents: "ccag_6163_abc" } })).toThrow(/retired/)
   })
 })
 
@@ -290,7 +285,7 @@ describe("CogniCloud.marketplace", () => {
       Response.json({ slug: "web-researcher" }),
       Response.json({ items: [], nextCursor: null }),
     )
-    const api = new CogniCloud({ apiKey: KEY, fetch }).marketplace
+    const api = new CogniCloud({ ...KEYS, fetch }).marketplace
     await api.listTemplates()
     await api.listTemplates({ category: "research" })
     await api.getTemplate("web-researcher")
@@ -306,7 +301,7 @@ describe("CogniCloud.marketplace", () => {
 
   it("takes another base", async () => {
     const { fetch, calls } = fakeFetch(Response.json([]))
-    await new CogniCloud({ apiKey: KEY, fetch, marketplaceBaseUrl: "https://mp.test/v1/marketplace" }).marketplace.listTemplates()
+    await new CogniCloud({ ...KEYS, fetch, marketplaceBaseUrl: "https://mp.test/v1/marketplace" }).marketplace.listTemplates()
     expect(calls[0]?.url).toBe("https://mp.test/v1/marketplace/templates")
   })
 })

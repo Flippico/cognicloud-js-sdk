@@ -2,7 +2,7 @@
 
 Call CogniCloud AI Gateway endpoints and manage them from Node.js, Bun, Deno and edge runtimes.
 
-> 1.0 changes how you sign in: one API key replaces the session token, the `tenant` option and the per-product keys. See [Migrating from 0.x](#migrating-from-0x).
+> 2.0: every call sends your account key together with a product key. See [Migrating from 1.x](#migrating-from-1x).
 
 ## Install
 
@@ -14,20 +14,26 @@ ESM, typed, uses the platform `fetch`, no runtime dependencies.
 
 ## API keys
 
-Create a key in the dashboard under **Settings → API keys**. It is shown once.
+Create keys in the dashboard under **Settings → API keys**. Each is shown once. You need two kinds, and every call uses both:
 
-- An **account key** (`cc_acc_...`) reaches every product of the workspace and acts as the person who created it.
-- A **product key** reaches one product: `cc_gw_` AI Gateway, `cc_db_` Database, `cc_br_` Browser, `cc_ml_` Mail, `cc_ag_` Agents. It can be narrowed to one resource, such as one endpoint, database or agent.
+- Your **account key** (`cc_acc_...`): who you are and which workspace. Required on every call; on its own it does nothing.
+- A **product key** for each product you call: `cc_gw_` AI Gateway, `cc_db_` Database, `cc_br_` Browser, `cc_ml_` Mail, `cc_ag_` Agents. It can be narrowed to one resource, such as one model, database or agent.
 
-The key names its workspace, so there is no `tenant` option and no `tenant_id` header. Keys cannot be created through the SDK or the API.
+Each call sends the product key as the Bearer token and the account key in `X-CogniCloud-Account-Key`. Both must be from the same person and workspace; the services refuse a product key alone (`401`) and an account key alone (`403`). The keys name their workspace, so there is no `tenant` option. Keys cannot be created through the SDK or the API.
 
 ```ts
 import { CogniCloud } from "@cognicloud/sdk"
 
-const cc = new CogniCloud({ apiKey: process.env.COGNICLOUD_API_KEY! })
+const cc = new CogniCloud({
+  accountKey: process.env.COGNICLOUD_ACCOUNT_KEY!,
+  productKeys: {
+    database: process.env.COGNICLOUD_DATABASE_KEY,
+    browser: process.env.COGNICLOUD_BROWSER_KEY,
+  },
+})
 ```
 
-A missing or blank key throws `CogniCloudError` with code `missing_key` when the client is created. A key in a retired format (`cgb_`, `cgd_`, `cga_`, `ccag_`, `cgm_`, `cgv_`, `cc_live_`) throws `retired_key`, and anything else, such as a session token, throws `invalid_key`. `parseKey(key)` reads a key's kind and workspace without a request.
+The client checks the keys when it is created: a missing account key throws `missing_account_key`, a key of the wrong kind `invalid_key`, keys from different workspaces `key_mismatch`, an old format (`cgb_`, `cgd_`, `cga_`, `ccag_`, `cgm_`, `cgv_`, `cc_live_`) `retired_key`. Using a product without its key, for example `cc.mail` with no `productKeys.mail`, throws `missing_product_key`. Web Builder and the marketplace have no product key yet: they take the account key alone. `parseKey(key)` and `checkKeys(accountKey, productKeys)` read keys without a request.
 
 ## Call an endpoint
 
@@ -43,7 +49,7 @@ const { output, finishReason, usage } = await endpoint.invoke({
 })
 ```
 
-The call acts as the endpoint's owner, so an account key or an AI Gateway key reaches every endpoint of the person who created it; a key narrowed to one endpoint reaches only that one. The invoke address is `<baseUrl>/invoke/<workspace>/<endpointId>`, with the workspace taken from the key. `new EndpointClient({ apiKey, endpointId })` or `new EndpointClient({ apiKey, url: endpoint.url })` makes the same client without a `CogniCloud`.
+The call needs `productKeys.gateway` and acts as the endpoint's owner. The invoke address is `<baseUrl>/invoke/<workspace>/<endpointId>`, with the workspace taken from the account key. `new EndpointClient({ accountKey, gatewayKey, endpointId })` or `new EndpointClient({ accountKey, gatewayKey, url: endpoint.url })` makes the same client without a `CogniCloud`.
 
 Without a request mapping the body goes to the provider as it is, and only plain-text messages are accepted:
 
@@ -102,7 +108,11 @@ Each event is `delta` (`text`), then one `done` (`answer`, the same shape as `in
 import { EndpointClient, pdfPart, textPart } from "@cognicloud/sdk"
 import { readFile } from "node:fs/promises"
 
-const endpoint = new EndpointClient({ url: process.env.COGNICLOUD_ENDPOINT_URL!, apiKey: process.env.COGNICLOUD_API_KEY! })
+const endpoint = new EndpointClient({
+  url: process.env.COGNICLOUD_ENDPOINT_URL!,
+  accountKey: process.env.COGNICLOUD_ACCOUNT_KEY!,
+  gatewayKey: process.env.COGNICLOUD_GATEWAY_KEY!,
+})
 const cv = await readFile("cv.pdf")
 
 const { output } = await endpoint.invoke({
@@ -114,7 +124,7 @@ Files go up to 10 MB. The gateway reserves a quarter of a file's size in tokens 
 
 ## Manage endpoints
 
-With an account key or an AI Gateway key:
+With `productKeys.gateway`:
 
 ```ts
 const { endpoint } = await cc.endpoints.create({
@@ -135,10 +145,13 @@ Also available: `cc.endpoints.list()` and `cc.endpoints.get(id)`.
 
 ## Browser sessions
 
-Browser calls take an account key or a browser key (`cc_br_`):
+Browser calls need `productKeys.browser` (`cc_br_`):
 
 ```ts
-const browser = new CogniCloud({ apiKey: process.env.COGNICLOUD_BROWSER_KEY! }).browser
+const browser = new CogniCloud({
+  accountKey: process.env.COGNICLOUD_ACCOUNT_KEY!,
+  productKeys: { browser: process.env.COGNICLOUD_BROWSER_KEY },
+}).browser
 const session = await browser.sessions.create({ timeoutMinutes: 15 })
 ```
 
@@ -158,7 +171,7 @@ A browser session is a Chrome that your agent drives over the Chrome DevTools Pr
 import { CogniCloud } from "@cognicloud/sdk"
 import { chromium } from "playwright"
 
-const cc = new CogniCloud({ apiKey: process.env.COGNICLOUD_API_KEY! })
+const cc = new CogniCloud({ accountKey: process.env.COGNICLOUD_ACCOUNT_KEY!, productKeys })
 
 const session = await cc.browser.sessions.create({ timeoutMinutes: 15 })
 const browser = await chromium.connectOverCDP(session.cdpUrl!)
@@ -192,7 +205,7 @@ await cc.browser.sessions.stop(session.id)
 
 ## Mail
 
-Mailboxes on the Flippico mail server, with an account key or a mail key (`cc_ml_`). The password is returned once; store it.
+Mailboxes on the Flippico mail server; needs `productKeys.mail` (`cc_ml_`). The password is returned once; store it.
 
 ```ts
 const { mailbox, password } = await cc.mail.create("support")
@@ -208,7 +221,7 @@ await cc.mail.create("ceo", { domain: "yourcompany.com" })
 
 ## Database
 
-Hosted Postgres. An account key or a database key (`cc_db_`) for every database creates and lists databases. `cc.database.data()` queries one: with a database key narrowed to one database it needs nothing else; with an account key, name the database, `cc.database.data(database.id)` (sent as `x-database-id`).
+Hosted Postgres; needs `productKeys.database` (`cc_db_`). A database key for every database creates and lists databases; `cc.database.data(database.id)` queries one (sent as `x-database-id`). With a database key narrowed to one database, `cc.database.data()` needs no id.
 
 ```ts
 const database = await cc.database.create("Orders")
@@ -313,7 +326,7 @@ Each step in `run.steps` has `thought`, `tool`, `summary` and `error`. A failed 
 An Agents key (`cc_ag_`) narrowed to one agent replaces the old agent credential: it can use only that agent and its runs; other calls are refused with `403`.
 
 ```ts
-const runner = new CogniCloud({ apiKey: process.env.AGENT_KEY! })
+const runner = new CogniCloud({ accountKey: process.env.COGNICLOUD_ACCOUNT_KEY!, productKeys: { agents: process.env.AGENT_KEY } })
 const run = await runner.runs.runAndWait(agentId, "Check the status page")
 ```
 
@@ -354,7 +367,17 @@ try {
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `apiKey` (required), `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`), `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`), `agentsBaseUrl` (default `https://cognicloud.dev/api/v1/agents`) and `marketplaceBaseUrl` (default `https://cognicloud.dev/api/v1/marketplace`).
+The `CogniCloud` client also takes `accountKey` (required), `productKeys`, `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`), `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`), `agentsBaseUrl` (default `https://cognicloud.dev/api/v1/agents`) and `marketplaceBaseUrl` (default `https://cognicloud.dev/api/v1/marketplace`).
+
+## Migrating from 1.x
+
+| 1.x | 2.0 |
+| --- | --- |
+| `new CogniCloud({ apiKey: "cc_acc_..." })` | `new CogniCloud({ accountKey: "cc_acc_...", productKeys: { database: "cc_db_...", ... } })` |
+| `new CogniCloud({ apiKey: "cc_db_..." })` | `new CogniCloud({ accountKey, productKeys: { database: "cc_db_..." } })` |
+| `new EndpointClient({ endpointId, apiKey })` | `new EndpointClient({ endpointId, accountKey, gatewayKey })` |
+
+Create a product key for each product you use on **Settings → API keys**, and keep the account key next to them.
 
 ## Migrating from 0.x
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloudError, EndpointClient } from "../src/index.js"
+import { KEY, KEYS, PRODUCT_KEYS } from "./keys.js"
 
-const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
 
 type Call = { url: string; init: RequestInit }
 
@@ -39,7 +39,7 @@ async function collect(events: AsyncGenerator<unknown>) {
 describe("EndpointClient.responses", () => {
   it("sends MCP tools by label and returns the response id and output items", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const result = await client.responses({
       input: "Check this invoice.",
       instructions: "Be brief.",
@@ -58,7 +58,7 @@ describe("EndpointClient.responses", () => {
 
   it("continues a conversation with previous_response_id", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ ...answer, responseId: "resp_2" }))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const next = await client.responses({ input: "And this one?", previous_response_id: "resp_1" })
     expect(next.responseId).toBe("resp_2")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: "And this one?", previous_response_id: "resp_1" })
@@ -66,7 +66,7 @@ describe("EndpointClient.responses", () => {
 
   it("never retries a Responses call", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ error: "gateway_unavailable", message: "x" }, { status: 503 }))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch, maxRetries: 3 })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch, maxRetries: 3 })
     await expect(client.responses({ input: "x" })).rejects.toMatchObject({ status: 503 })
     expect(calls).toHaveLength(1)
   })
@@ -75,7 +75,7 @@ describe("EndpointClient.responses", () => {
 describe("extra fields", () => {
   it("sends any extra field at the top level of the body", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     await client.responses({ input: "Hi", seed: 7, reasoning: { effort: "low" } })
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: "Hi", seed: 7, reasoning: { effort: "low" } })
   })
@@ -84,7 +84,7 @@ describe("extra fields", () => {
 describe("MCP tools", () => {
   it("sends a caller's server address and bearer header to the gateway unchanged", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     await client.responses({
       input: "Check this invoice.",
       tools: [
@@ -122,7 +122,7 @@ describe("EndpointClient.embeddings", () => {
         usage: { inputTokens: 12, outputTokens: 0, totalTokens: 12 },
       })
     )
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const result = await client.embeddings({ input: ["first", "second"], dimensions: 256 })
     expect(result.data[1].embedding).toEqual([0.3, 0.4])
     expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1/embeddings")
@@ -139,7 +139,7 @@ describe("EndpointClient.stream", () => {
           "\n\n"
       )
     )
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const events = await collect(await client.stream({ messages: [{ role: "user", content: "hi" }] }))
     expect(events).toEqual([
       { type: "delta", text: "Hel" },
@@ -156,7 +156,7 @@ describe("EndpointClient.stream", () => {
         'event: delta\ndata: {"text":"Hi"}\n\nevent: error\ndata: {"code":"upstream_failure","message":"The provider did not finish the answer."}\n\n'
       )
     )
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const events = await collect(await client.streamResponses({ input: "x" }))
     expect(events[1]).toEqual({ type: "error", code: "upstream_failure", message: "The provider did not finish the answer." })
     expect(events).toHaveLength(2)
@@ -164,7 +164,7 @@ describe("EndpointClient.stream", () => {
 
   it("reports stream_ended when the stream closes before its final event", async () => {
     const { fetch } = fakeFetch(sse('event: delta\ndata: {"text":"Hi"}\n\n'))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const events = await collect(await client.stream({ input: "x" }))
     expect(events[1]).toMatchObject({ type: "error", code: "stream_ended" })
   })
@@ -173,7 +173,7 @@ describe("EndpointClient.stream", () => {
     const { fetch } = fakeFetch(
       Response.json({ error: "invalid_request", message: "Streaming needs an API version of 2024-10-21 or later." }, { status: 422 })
     )
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch })
     const error = await client.stream({ input: "x" }).catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
     expect(error).toMatchObject({ status: 422, code: "invalid_request" })
@@ -181,7 +181,7 @@ describe("EndpointClient.stream", () => {
 
   it("never retries a stream, because the provider may already have billed it", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ error: "gateway_unavailable", message: "x" }, { status: 503 }))
-    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch, maxRetries: 3 })
+    const client = new EndpointClient({ endpointId: "e1", accountKey: KEY, gatewayKey: PRODUCT_KEYS.gateway, fetch, maxRetries: 3 })
     await expect(client.stream({ input: "x" })).rejects.toMatchObject({ status: 503 })
     expect(calls).toHaveLength(1)
   })

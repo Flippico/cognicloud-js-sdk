@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud, CogniCloudError } from "../src/index.js"
+import { KEY, KEYS, PRODUCT_KEYS } from "./keys.js"
 
-const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
 const DB_KEY = `cc_db_636f676e69636c6f7564_${"d".repeat(64)}`
-const data = (options: { fetch: typeof fetch; maxRetries?: number }) => new CogniCloud({ apiKey: DB_KEY, ...options }).database.data()
+const data = (options: { fetch: typeof fetch; maxRetries?: number }) => new CogniCloud({ accountKey: KEY, productKeys: { database: DB_KEY }, ...options }).database.data()
 
 type Call = { url: string; init: RequestInit }
 
@@ -25,14 +25,14 @@ const header = (call: Call | undefined, name: string) => new Headers(call?.init.
 
 describe("database data", () => {
   it("refuses a missing key", () => {
-    expect(() => new CogniCloud({ apiKey: " " })).toThrow(/key is required/)
+    expect(() => new CogniCloud({ accountKey: " " })).toThrow(/key is required/)
   })
 
   it("names the database with an account key", async () => {
     const { fetch, calls } = fakeFetch(Response.json(result))
-    await new CogniCloud({ apiKey: KEY, fetch }).database.data("db1").query("SELECT 1")
+    await new CogniCloud({ ...KEYS, fetch }).database.data("db1").query("SELECT 1")
     expect(header(calls[0], "x-database-id")).toBe("db1")
-    expect(header(calls[0], "authorization")).toBe(`Bearer ${KEY}`)
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${PRODUCT_KEYS.database}`)
   })
 
   it("runs SQL with the key and no tenant", async () => {
@@ -169,7 +169,7 @@ describe("CogniCloud.database", () => {
       Response.json(database),
       new Response(null, { status: 204 }),
     )
-    const cc = new CogniCloud({ apiKey: KEY, fetch, databaseBaseUrl: "https://db.test/v1/" })
+    const cc = new CogniCloud({ ...KEYS, fetch, databaseBaseUrl: "https://db.test/v1/" })
     expect((await cc.database.create("Orders")).id).toBe("db1")
     expect(await cc.database.list()).toEqual([database])
     expect((await cc.database.get("db1")).name).toBe("Orders")
@@ -181,14 +181,14 @@ describe("CogniCloud.database", () => {
       "DELETE https://db.test/v1/databases/db1",
     ])
     expect(body(calls[0])).toEqual({ name: "Orders" })
-    expect(header(calls[0], "authorization")).toBe(`Bearer ${KEY}`)
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${PRODUCT_KEYS.database}`)
     expect(header(calls[0], "tenant_id")).toBeNull()
   })
 
   it("runs SQL and lists tables as the owner", async () => {
     const tables = [{ name: "orders", columns: [] }]
     const { fetch, calls } = fakeFetch(Response.json(result), Response.json({ tables }))
-    const cc = new CogniCloud({ apiKey: KEY, fetch })
+    const cc = new CogniCloud({ ...KEYS, fetch })
     const found = await cc.database.query("db1", "SELECT id FROM orders WHERE id = $1", ["a078e7865b1073c4d2c1eaa92a9b5507"])
     expect(found.rowCount).toBe(1)
     expect(await cc.database.tables("db1")).toEqual(tables)
@@ -197,20 +197,20 @@ describe("CogniCloud.database", () => {
       sql: "SELECT id FROM orders WHERE id = $1",
       params: ["a078e7865b1073c4d2c1eaa92a9b5507"],
     })
-    expect(header(calls[0], "authorization")).toBe(`Bearer ${KEY}`)
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${PRODUCT_KEYS.database}`)
     expect(calls[1]?.url).toBe(`${base}/databases/db1/tables`)
   })
 
   it("does not repeat an owner query, because it may change data", async () => {
     const { fetch, calls } = fakeFetch(new Response(null, { status: 503 }))
-    const cc = new CogniCloud({ apiKey: KEY, fetch })
+    const cc = new CogniCloud({ ...KEYS, fetch })
     await expect(cc.database.query("db1", "DELETE FROM orders")).rejects.toMatchObject({ status: 503 })
     expect(calls).toHaveLength(1)
   })
 
   it("pages through actions", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ items: [], nextCursor: null }))
-    await new CogniCloud({ apiKey: KEY, fetch }).database.actions({ limit: 5, cursor: "abc" })
+    await new CogniCloud({ ...KEYS, fetch }).database.actions({ limit: 5, cursor: "abc" })
     expect(calls[0]?.url).toBe(`${base}/actions?limit=5&cursor=abc`)
   })
 })

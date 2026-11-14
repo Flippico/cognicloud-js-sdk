@@ -5,7 +5,7 @@ import { MailApi } from "./mail.js"
 import { MarketplaceApi } from "./marketplace.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
-import { parseKey } from "./keys.js"
+import { checkKeys, pairHeaders, type ProductKeys, type ProductName } from "./keys.js"
 import { streamEvents } from "./stream.js"
 import { WebBuilderApi } from "./web-builder.js"
 import type {
@@ -41,8 +41,10 @@ export type ClientOptions = {
 }
 
 export type EndpointClientOptions = ClientOptions & {
-  /** An account key (`cc_acc_`) or an AI Gateway key (`cc_gw_`) from Settings → API keys. */
-  apiKey: string
+  /** Your account key (`cc_acc_…`). */
+  accountKey: string
+  /** An AI Gateway product key (`cc_gw_…`), optionally limited to this endpoint. */
+  gatewayKey: string
 } & (
     | {
         /** The endpoint's invoke URL as CogniCloud issued it (`endpoint.url`). Takes precedence over `baseUrl`. */
@@ -50,18 +52,20 @@ export type EndpointClientOptions = ClientOptions & {
         endpointId?: never
       }
     | {
-        /** The endpoint to call; the workspace comes from the key. */
+        /** The endpoint to call; the workspace comes from the account key. */
         endpointId: string
         url?: never
       }
   )
 
 export type CogniCloudOptions = ClientOptions & {
+  /** Your account key (`cc_acc_…`), from Settings → API keys. Required; it is sent with every call. */
+  accountKey: string
   /**
-   * An account key (`cc_acc_`) for every product, or a product key (`cc_gw_`, `cc_db_`, `cc_br_`, `cc_ml_`, `cc_ag_`)
-   * for one. Create it in the dashboard under Settings → API keys. The key names its workspace.
+   * A product key for each product you call: `gateway` (`cc_gw_`), `database` (`cc_db_`), `browser` (`cc_br_`),
+   * `mail` (`cc_ml_`), `agents` (`cc_ag_`). Each call sends its product key with the account key.
    */
-  apiKey: string
+  productKeys?: ProductKeys
   /** The browser service's base. Default `https://cognicloud.dev/api/v1/browser`. */
   browserBaseUrl?: string
   /** The mail service's base. Default `https://cognicloud.dev/api/v1/mail`. */
@@ -108,12 +112,12 @@ function httpConfig(options: ClientOptions): HttpConfig {
 export class EndpointClient {
   /** The address every invoke is sent to. */
   readonly url: string
-  private readonly credential: string
+  private readonly headers: Record<string, string>
   private readonly config: HttpConfig
 
   constructor(options: EndpointClientOptions) {
-    const { tenantHex } = parseKey(options.apiKey)
-    this.credential = options.apiKey
+    const { tenantHex } = checkKeys(options.accountKey, { gateway: options.gatewayKey })
+    this.headers = pairHeaders(options.accountKey, { gateway: options.gatewayKey }, "gateway")
     this.config = httpConfig(options)
     this.url =
       options.url ?? `${this.config.baseUrl.replace(/\/+$/, "")}/invoke/${tenantHex}/${encodeURIComponent(options.endpointId)}`
@@ -127,7 +131,7 @@ export class EndpointClient {
     return send<InvokeResponse>(this.config, {
       method: "POST",
       url: this.url,
-      headers: { authorization: `Bearer ${this.credential}` },
+      headers: this.headers,
       body,
       retry: false,
     })
@@ -138,7 +142,7 @@ export class EndpointClient {
     return send<ResponseResult>(this.config, {
       method: "POST",
       url: this.url,
-      headers: { authorization: `Bearer ${this.credential}` },
+      headers: this.headers,
       body: request,
       retry: false,
     })
@@ -149,7 +153,7 @@ export class EndpointClient {
     return send<EmbeddingsResult>(this.config, {
       method: "POST",
       url: `${this.url}/embeddings`,
-      headers: { authorization: `Bearer ${this.credential}` },
+      headers: this.headers,
       body: request,
       retry: false,
     })
@@ -163,7 +167,7 @@ export class EndpointClient {
     const response = await open(this.config, {
       method: "POST",
       url: this.url,
-      headers: { authorization: `Bearer ${this.credential}` },
+      headers: this.headers,
       body: { ...body, stream: true },
       retry: false,
     })
@@ -239,38 +243,73 @@ export class EndpointsApi {
   }
 }
 
-/** Every CogniCloud product with one API key. */
+/** Every CogniCloud product: your account key together with one product key per product. */
 export class CogniCloud {
-  readonly endpoints: EndpointsApi
-  readonly browser: BrowserApi
-  readonly mail: MailApi
-  readonly database: DatabaseApi
   readonly webBuilder: WebBuilderApi
-  readonly agents: AgentsApi
-  readonly skills: SkillsApi
-  readonly runs: RunsApi
   readonly marketplace: MarketplaceApi
   private readonly options: CogniCloudOptions
+  private readonly keys: ProductKeys
 
   constructor(options: CogniCloudOptions) {
-    parseKey(options.apiKey)
+    this.keys = options.productKeys ?? {}
+    checkKeys(options.accountKey, this.keys)
     this.options = options
-    const headers = { authorization: `Bearer ${options.apiKey}` }
-    const config = (baseUrl: string | undefined, fallback: string) => ({ ...httpConfig(options), baseUrl: baseUrl ?? fallback })
-    this.endpoints = new EndpointsApi(httpConfig(options), headers)
-    this.browser = new BrowserApi(config(options.browserBaseUrl, defaults.browserBaseUrl), headers)
-    this.mail = new MailApi(config(options.mailBaseUrl, defaults.mailBaseUrl), headers)
-    this.database = new DatabaseApi(config(options.databaseBaseUrl, defaults.databaseBaseUrl), headers)
-    this.webBuilder = new WebBuilderApi(config(options.webBuilderBaseUrl, defaults.webBuilderBaseUrl), headers)
-    const agents = config(options.agentsBaseUrl, defaults.agentsBaseUrl)
-    this.agents = new AgentsApi(agents, headers)
-    this.skills = new SkillsApi(agents, headers)
-    this.runs = new RunsApi(agents, headers)
-    this.marketplace = new MarketplaceApi(config(options.marketplaceBaseUrl, defaults.marketplaceBaseUrl), headers)
+    const accountOnly = { authorization: `Bearer ${options.accountKey}` }
+    this.webBuilder = new WebBuilderApi(this.config(options.webBuilderBaseUrl, defaults.webBuilderBaseUrl), accountOnly)
+    this.marketplace = new MarketplaceApi(
+      this.config(options.marketplaceBaseUrl, defaults.marketplaceBaseUrl),
+      accountOnly,
+    )
   }
 
-  /** Calls one AI Gateway endpoint with this key, as its owner. */
+  private config(baseUrl: string | undefined, fallback: string): HttpConfig {
+    return { ...httpConfig(this.options), baseUrl: baseUrl ?? fallback }
+  }
+
+  private headers(product: ProductName): Record<string, string> {
+    return pairHeaders(this.options.accountKey, this.keys, product)
+  }
+
+  /** AI Gateway endpoints. Needs `productKeys.gateway`. */
+  get endpoints(): EndpointsApi {
+    return new EndpointsApi(httpConfig(this.options), this.headers("gateway"))
+  }
+
+  /** Needs `productKeys.browser`. */
+  get browser(): BrowserApi {
+    return new BrowserApi(this.config(this.options.browserBaseUrl, defaults.browserBaseUrl), this.headers("browser"))
+  }
+
+  /** Needs `productKeys.mail`. */
+  get mail(): MailApi {
+    return new MailApi(this.config(this.options.mailBaseUrl, defaults.mailBaseUrl), this.headers("mail"))
+  }
+
+  /** Needs `productKeys.database`. */
+  get database(): DatabaseApi {
+    const config = this.config(this.options.databaseBaseUrl, defaults.databaseBaseUrl)
+    return new DatabaseApi(config, this.headers("database"))
+  }
+
+  /** Needs `productKeys.agents`. */
+  get agents(): AgentsApi {
+    return new AgentsApi(this.config(this.options.agentsBaseUrl, defaults.agentsBaseUrl), this.headers("agents"))
+  }
+
+  /** Needs `productKeys.agents`. */
+  get skills(): SkillsApi {
+    return new SkillsApi(this.config(this.options.agentsBaseUrl, defaults.agentsBaseUrl), this.headers("agents"))
+  }
+
+  /** Needs `productKeys.agents`. */
+  get runs(): RunsApi {
+    return new RunsApi(this.config(this.options.agentsBaseUrl, defaults.agentsBaseUrl), this.headers("agents"))
+  }
+
+  /** Calls one AI Gateway endpoint as its owner. Needs `productKeys.gateway`. */
   endpoint(endpointId: string): EndpointClient {
-    return new EndpointClient({ ...this.options, endpointId })
+    const gatewayKey = this.keys.gateway ?? ""
+    this.headers("gateway")
+    return new EndpointClient({ ...this.options, gatewayKey, endpointId })
   }
 }

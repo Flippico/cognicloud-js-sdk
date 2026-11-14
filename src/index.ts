@@ -1,7 +1,7 @@
 export { CogniCloud, EndpointClient, EndpointsApi, encodeTenant } from "./client.js"
 export type { ClientOptions, CogniCloudOptions, EndpointClientOptions } from "./client.js"
-export { parseKey } from "./keys.js"
-export type { KeyKind, ParsedKey } from "./keys.js"
+export { accountKeyHeader, checkKeys, parseKey } from "./keys.js"
+export type { KeyKind, ParsedKey, ProductKeys, ProductName } from "./keys.js"
 export { AgentsApi, RunsApi, SkillsApi } from "./agents.js"
 export { BrowserApi, BrowserSessionsApi } from "./browser.js"
 export type {
