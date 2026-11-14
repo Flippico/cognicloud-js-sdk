@@ -1,6 +1,8 @@
-export { CogniCloud, CogniCloudBrowser, CogniCloudDatabase, EndpointClient, EndpointsApi, encodeTenant } from "./client.js"
-export type { ClientOptions, CogniCloudBrowserOptions, CogniCloudDatabaseOptions, CogniCloudOptions, EndpointClientOptions } from "./client.js"
-export { AgentKeysApi, AgentsApi, RunsApi, SkillsApi } from "./agents.js"
+export { CogniCloud, EndpointClient, EndpointsApi, encodeTenant } from "./client.js"
+export type { ClientOptions, CogniCloudOptions, EndpointClientOptions } from "./client.js"
+export { parseKey } from "./keys.js"
+export type { KeyKind, ParsedKey } from "./keys.js"
+export { AgentsApi, RunsApi, SkillsApi } from "./agents.js"
 export { BrowserApi, BrowserSessionsApi } from "./browser.js"
 export type {
   AgentRun,
@@ -13,7 +15,7 @@ export type {
   StartAgentRunInput,
   StepRun,
 } from "./browser.js"
-export { DatabaseApi, DatabaseDataApi, DatabaseKeysApi, DatabaseSelectQuery, DatabaseTableApi } from "./database.js"
+export { DatabaseApi, DatabaseDataApi, DatabaseSelectQuery, DatabaseTableApi } from "./database.js"
 export { MailApi, MailDomainsApi } from "./mail.js"
 export { MarketplaceApi } from "./marketplace.js"
 export { WebBuilderApi } from "./web-builder.js"

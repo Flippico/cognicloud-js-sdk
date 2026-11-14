@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud, CogniCloudError, EndpointClient, encodeTenant } from "../src/index.js"
 
+const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
+
 type Call = { url: string; init: RequestInit }
 
 function fakeFetch(...responses: Response[]) {
@@ -37,20 +39,20 @@ const endpoint = {
 }
 
 describe("EndpointClient", () => {
-  it("invokes the endpoint with its credential and returns the canonical answer", async () => {
+  it("invokes the endpoint with the key and returns the canonical answer", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ endpointId: "e1", credential: "cc_live_secret", fetch })
+    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
     const result = await client.invoke({ input: "Hi" })
     expect(result).toEqual(answer)
     expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
     expect(calls[0].init.method).toBe("POST")
-    expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer cc_live_secret")
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`)
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ input: "Hi" })
   })
 
   it("never retries an invoke, because the provider may already have billed it", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ error: "gateway_unavailable", message: "x" }, { status: 503 }))
-    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch, maxRetries: 3 })
+    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch, maxRetries: 3 })
     await expect(client.invoke({ input: "Hi" })).rejects.toMatchObject({ status: 503, code: "gateway_unavailable" })
     expect(calls).toHaveLength(1)
   })
@@ -59,7 +61,7 @@ describe("EndpointClient", () => {
     const { fetch } = fakeFetch(
       Response.json({ error: "endpoint_paused", message: "The endpoint is paused." }, { status: 409 })
     )
-    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch })
+    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
     const error = await client.invoke({ input: "Hi" }).catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
     expect(error).toMatchObject({ status: 409, code: "endpoint_paused", message: "The endpoint is paused." })
@@ -67,49 +69,49 @@ describe("EndpointClient", () => {
 
   it("keeps the base URL configurable and tolerates a trailing slash", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch, baseUrl: "https://staging.example/v1/" })
+    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch, baseUrl: "https://staging.example/v1/" })
     await client.invoke({ input: "Hi" })
     expect(calls[0].url).toBe("https://staging.example/v1/invoke/636f676e69636c6f7564/e1")
   })
 
-  it("names the endpoint's tenant in the address, as hex of its name", async () => {
+  it("names the key's workspace in the address, as hex of its name", async () => {
     expect(encodeTenant("cognicloud")).toBe("636f676e69636c6f7564")
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    await new EndpointClient({ endpointId: "e1", tenant: "acme", credential: "k", fetch }).invoke({ input: "Hi" })
+    const acme = `cc_gw_61636d65_${"e".repeat(64)}`
+    await new EndpointClient({ endpointId: "e1", apiKey: acme, fetch }).invoke({ input: "Hi" })
     expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/61636d65/e1")
   })
 
   it("calls the invoke URL CogniCloud issued, as it is", async () => {
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ url: endpoint.url, credential: "k", fetch })
+    const client = new EndpointClient({ url: endpoint.url, apiKey: KEY, fetch })
     await client.invoke({ input: [{ role: "system", content: "Be brief." }, { role: "user", content: "Hi" }], max_output_tokens: 64 })
     expect(calls[0].url).toBe(endpoint.url)
   })
 })
 
 describe("CogniCloud endpoints", () => {
-  it("creates an endpoint with the session token and returns its one-time credential", async () => {
+  it("creates an endpoint with the key and no tenant header", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ endpoint, credential: { secret: "cc_live_new" } }, { status: 201 }))
-    const cc = new CogniCloud({ token: "amadeus-session", locale: "pl", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, locale: "pl", fetch })
     const created = await cc.endpoints.create({ name: "Support bot", providerId: "azure-openai", model: "gpt-5-mini", tokenLimit: 1000 })
     expect(created.credential.secret).toBe("cc_live_new")
-    expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer amadeus-session")
-    expect((calls[0].init.headers as Record<string, string>).tenant_id).toBe("cognicloud")
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`)
+    expect((calls[0].init.headers as Record<string, string>).tenant_id).toBeUndefined()
     expect((calls[0].init.headers as Record<string, string>)["accept-language"]).toBe("pl")
   })
 
   it("updates only the fields it is given", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ ...endpoint, tokenLimit: 5000 }))
-    const cc = new CogniCloud({ token: "t", tenant: "acme", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, fetch })
     await cc.endpoints.update("e1", { tokenLimit: 5000 })
-    expect((calls[0].init.headers as Record<string, string>).tenant_id).toBe("acme")
     expect(calls[0].init.method).toBe("PATCH")
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ tokenLimit: 5000 })
   })
 
   it("reads daily usage with an optional range", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ days: [{ day: "2026-10-20", requests: 2, inputTokens: 10, outputTokens: 3, totalTokens: 13 }] }))
-    const cc = new CogniCloud({ token: "t", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, fetch })
     const days = await cc.endpoints.dailyUsage("e1", { from: "2026-10-01", to: "2026-10-20" })
     expect(days).toHaveLength(1)
     expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/endpoints/e1/usage/daily?from=2026-10-01&to=2026-10-20")
@@ -117,7 +119,7 @@ describe("CogniCloud endpoints", () => {
 
   it("deletes an endpoint without expecting a body", async () => {
     const { fetch, calls } = fakeFetch(new Response(null, { status: 204 }))
-    const cc = new CogniCloud({ token: "t", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, fetch })
     await expect(cc.endpoints.delete("e1")).resolves.toBeUndefined()
     expect(calls[0].init.method).toBe("DELETE")
   })
@@ -127,7 +129,7 @@ describe("CogniCloud endpoints", () => {
       Response.json({ error: "unavailable", message: "try later" }, { status: 503 }),
       Response.json([endpoint])
     )
-    const cc = new CogniCloud({ token: "t", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, fetch })
     const list = await cc.endpoints.list()
     expect(list).toHaveLength(1)
     expect(calls).toHaveLength(2)
@@ -137,7 +139,7 @@ describe("CogniCloud endpoints", () => {
     const failing = (async () => {
       throw new TypeError("fetch failed")
     }) as typeof globalThis.fetch
-    const cc = new CogniCloud({ token: "t", fetch: failing, maxRetries: 0 })
+    const cc = new CogniCloud({ apiKey: KEY, fetch: failing, maxRetries: 0 })
     await expect(cc.endpoints.get("e1")).rejects.toMatchObject({ status: 0, code: "network_error" })
   })
 })
@@ -166,7 +168,7 @@ describe("files", () => {
   it("sends a message with a PDF part to the endpoint unchanged", async () => {
     const { pdfPart, textPart } = await import("../src/index.js")
     const { fetch, calls } = fakeFetch(Response.json(answer))
-    const client = new EndpointClient({ endpointId: "e1", credential: "k", fetch })
+    const client = new EndpointClient({ endpointId: "e1", apiKey: KEY, fetch })
     const body = { messages: [{ role: "user", content: [textPart("Match this CV."), pdfPart(new Uint8Array([1, 2, 3]), "cv.pdf")] }] }
     await client.invoke(body)
     expect(JSON.parse(calls[0].init.body as string)).toEqual(body)
@@ -175,14 +177,37 @@ describe("files", () => {
 
 
 describe("client creation", () => {
-  it("refuses a missing, empty or blank token before any request is made", () => {
-    for (const token of ["", "   ", undefined]) {
-      expect(() => new CogniCloud({ token: token as unknown as string })).toThrow(CogniCloudError)
+  it("refuses a missing, empty or blank key before any request is made", () => {
+    for (const apiKey of ["", "   ", undefined]) {
+      expect(() => new CogniCloud({ apiKey: apiKey as unknown as string })).toThrow(CogniCloudError)
     }
-    try {
-      new CogniCloud({ token: "" })
-    } catch (error) {
-      expect((error as CogniCloudError).code).toBe("missing_token")
+    expect(() => new CogniCloud({ apiKey: "" })).toThrow(expect.objectContaining({ code: "missing_key" }))
+  })
+
+  it("refuses a retired product key with a pointer to Settings", () => {
+    for (const old of ["cgb_6163_abc", "cgd_x", "cga_6163_x", "cgm_x", "cgv_x", "cc_live_x", "ccag_6163_x"]) {
+      expect(() => new CogniCloud({ apiKey: old })).toThrow(expect.objectContaining({ code: "retired_key" }))
+      expect(() => new CogniCloud({ apiKey: old })).toThrow(/Settings → API keys/)
     }
+    expect(() => new EndpointClient({ endpointId: "e1", apiKey: "cc_live_x" })).toThrow(/retired/)
+  })
+
+  it("refuses something that is not a key, such as a session token", () => {
+    for (const other of ["eyJhbGciOi.x.y", "cc_acc_zz_abc", "cc_acc_616_abc", "cc_xx_6163_abc"]) {
+      expect(() => new CogniCloud({ apiKey: other })).toThrow(expect.objectContaining({ code: "invalid_key" }))
+    }
+  })
+
+  it("reads a key's kind and workspace", async () => {
+    const { parseKey } = await import("../src/index.js")
+    expect(parseKey(KEY)).toEqual({ kind: "account", tenantHex: "636f676e69636c6f7564" })
+    expect(parseKey(`cc_db_61_${"f".repeat(64)}`).kind).toBe("database")
+  })
+
+  it("gives an endpoint client that sends the same key", async () => {
+    const { fetch, calls } = fakeFetch(Response.json(answer))
+    await new CogniCloud({ apiKey: KEY, fetch }).endpoint("e1").invoke({ input: "Hi" })
+    expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/ai-gateway/invoke/636f676e69636c6f7564/e1")
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`)
   })
 })

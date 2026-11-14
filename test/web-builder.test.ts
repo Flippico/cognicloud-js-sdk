@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud, CogniCloudError } from "../src/index.js"
 
+const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
+
 type Call = { url: string; init: RequestInit }
 
 function fakeFetch(...responses: Response[]) {
@@ -30,14 +32,14 @@ const application = {
 describe("CogniCloud.webBuilder", () => {
   it("creates an application with the session and tenant", async () => {
     const { fetch, calls } = fakeFetch(Response.json(application, { status: 201 }))
-    const client = new CogniCloud({ token: "session-token", tenant: "acme", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     const created = await client.webBuilder.create({ subdomain: "shop" })
     expect(created.url).toBe("https://shop.cognicloud.dev")
     expect(calls[0]?.url).toBe("https://cognicloud.dev/api/v1/web-builder/applications")
     expect(calls[0]?.init.method).toBe("POST")
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ subdomain: "shop" })
-    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe("Bearer session-token")
-    expect(new Headers(calls[0]?.init.headers).get("tenant_id")).toBe("acme")
+    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe(`Bearer ${KEY}`)
+    expect(new Headers(calls[0]?.init.headers).get("tenant_id")).toBeNull()
   })
 
   it("lists, reads, redeploys, reads logs and deletes", async () => {
@@ -48,7 +50,7 @@ describe("CogniCloud.webBuilder", () => {
       Response.json({ logs: "built" }),
       new Response(null, { status: 204 }),
     )
-    const api = new CogniCloud({ token: "t", fetch, webBuilderBaseUrl: "https://wb.test/v1" }).webBuilder
+    const api = new CogniCloud({ apiKey: KEY, fetch, webBuilderBaseUrl: "https://wb.test/v1" }).webBuilder
     expect(await api.list()).toEqual([application])
     await api.get(application.id)
     await api.redeploy(application.id)
@@ -73,7 +75,7 @@ describe("CogniCloud.webBuilder", () => {
       Response.json(application),
       Response.json(application),
     )
-    const api = new CogniCloud({ token: "t", fetch, webBuilderBaseUrl: "https://wb.test/v1" }).webBuilder
+    const api = new CogniCloud({ apiKey: KEY, fetch, webBuilderBaseUrl: "https://wb.test/v1" }).webBuilder
     await api.update(application.id, { branch: "next" })
     await api.pause(application.id)
     await api.resume(application.id)
@@ -103,7 +105,7 @@ describe("CogniCloud.webBuilder", () => {
       Response.json({ login: "acme", items: [] }),
       new Response(null, { status: 204 }),
     )
-    const api = new CogniCloud({ token: "t", fetch, webBuilderBaseUrl: "https://wb.test/v1" }).webBuilder
+    const api = new CogniCloud({ apiKey: KEY, fetch, webBuilderBaseUrl: "https://wb.test/v1" }).webBuilder
     await api.actions({ limit: 5, applicationId: application.id })
     await api.authorizeGithub("https://app.test/back")
     expect(await api.connectGithub("code", "state")).toEqual({ login: "acme" })
@@ -120,7 +122,7 @@ describe("CogniCloud.webBuilder", () => {
 
   it("does not retry a create and reports a taken subdomain", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ error: "conflict", message: "taken" }, { status: 409 }))
-    const client = new CogniCloud({ token: "t", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     const error = await client.webBuilder.create({ subdomain: "shop" }).catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
     expect((error as CogniCloudError).code).toBe("conflict")

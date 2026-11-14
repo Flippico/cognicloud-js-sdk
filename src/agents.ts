@@ -3,7 +3,6 @@ import { send, type HttpConfig } from "./http.js"
 import type {
   Agent,
   AgentActionList,
-  AgentKey,
   CreateAgentInput,
   CreatedAgent,
   CreateSkillInput,
@@ -29,35 +28,14 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** The workspace's `cga_` keys. Keys are created in the dashboard. */
-export class AgentKeysApi {
-  private readonly config: HttpConfig
-  private readonly headers: Record<string, string>
-
-  constructor(config: HttpConfig, headers: Record<string, string>) {
-    this.config = config
-    this.headers = headers
-  }
-
-  list(): Promise<AgentKey[]> {
-    return send(this.config, { method: "GET", path: "/keys", headers: this.headers })
-  }
-
-  revoke(id: string): Promise<void> {
-    return send(this.config, { method: "DELETE", path: `/keys/${encodeURIComponent(id)}`, headers: this.headers, retry: false })
-  }
-}
-
 /** Agents of the workspace: what they are told, which endpoint decides, and how long they may run. */
 export class AgentsApi {
-  readonly keys: AgentKeysApi
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
   constructor(config: HttpConfig, headers: Record<string, string>) {
     this.config = config
     this.headers = headers
-    this.keys = new AgentKeysApi(config, headers)
   }
 
   list(): Promise<Agent[]> {

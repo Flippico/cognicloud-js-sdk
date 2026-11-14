@@ -297,18 +297,6 @@ export type DatabaseList = {
   items: HostedDatabase[]
 }
 
-export type DatabaseKey = {
-  id: string
-  databaseId: string
-  name: string
-  /** `read` can only read. `write` runs as the database owner, so it can also change the schema. */
-  access: "read" | "write"
-  /** The first characters of the secret, to tell keys apart. */
-  prefix: string
-  createdAt: string
-  lastUsedAt: string | null
-}
-
 export type DatabaseAction = {
   id: string
   /** `create_database`, `delete_database`, `create_key` or `revoke_key`. */
@@ -447,15 +435,6 @@ export type SkillVersion = {
   description: string
   body: string
   createdAt: string
-}
-
-export type AgentKey = {
-  id: string
-  name: string
-  /** The first characters of the `cga_` key, to tell keys apart. */
-  prefix: string
-  createdAt: string
-  lastUsedAt: string | null
 }
 
 export type AgentAction = {

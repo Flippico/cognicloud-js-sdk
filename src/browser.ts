@@ -285,16 +285,15 @@ export class BrowserSessionsApi {
   }
 }
 
-/** Manages the browser product with the signed-in person's session. */
+/** The browser product: sessions, profiles and proxy countries. */
 export class BrowserApi {
   readonly sessions: BrowserSessionsApi
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
-  /** `tenant` is sent as the `tenant_id` header when given; a browser key names its workspace and needs none. */
-  constructor(config: HttpConfig, token: string, tenant?: string) {
+  constructor(config: HttpConfig, headers: Record<string, string>) {
     this.config = config
-    this.headers = tenant === undefined ? { authorization: `Bearer ${token}` } : { authorization: `Bearer ${token}`, tenant_id: tenant }
+    this.headers = headers
     this.sessions = new BrowserSessionsApi(config, this.headers)
   }
 

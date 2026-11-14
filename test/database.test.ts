@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { CogniCloud, CogniCloudDatabase, CogniCloudError } from "../src/index.js"
+import { CogniCloud, CogniCloudError } from "../src/index.js"
+
+const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
+const DB_KEY = `cc_db_636f676e69636c6f7564_${"d".repeat(64)}`
+const data = (options: { fetch: typeof fetch; maxRetries?: number }) => new CogniCloud({ apiKey: DB_KEY, ...options }).database.data()
 
 type Call = { url: string; init: RequestInit }
 
@@ -19,25 +23,33 @@ const result = { columns: [{ name: "id", type: "int4" }], rows: [{ id: 1 }], row
 const body = (call?: Call) => JSON.parse(String(call?.init.body))
 const header = (call: Call | undefined, name: string) => new Headers(call?.init.headers).get(name)
 
-describe("CogniCloudDatabase", () => {
+describe("database data", () => {
   it("refuses a missing key", () => {
-    expect(() => new CogniCloudDatabase({ key: " " })).toThrow(/key is required/)
+    expect(() => new CogniCloud({ apiKey: " " })).toThrow(/key is required/)
+  })
+
+  it("names the database with an account key", async () => {
+    const { fetch, calls } = fakeFetch(Response.json(result))
+    await new CogniCloud({ apiKey: KEY, fetch }).database.data("db1").query("SELECT 1")
+    expect(header(calls[0], "x-database-id")).toBe("db1")
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${KEY}`)
   })
 
   it("runs SQL with the key and no tenant", async () => {
     const { fetch, calls } = fakeFetch(Response.json(result))
-    const db = new CogniCloudDatabase({ key: "cgd_key", fetch })
+    const db = data({ fetch })
     const found = await db.query<{ id: number }>("SELECT id FROM orders WHERE status = $1", ["paid"])
     expect(found.rows[0]?.id).toBe(1)
     expect(calls[0]?.url).toBe(`${base}/query`)
     expect(body(calls[0])).toEqual({ sql: "SELECT id FROM orders WHERE status = $1", params: ["paid"] })
-    expect(header(calls[0], "authorization")).toBe("Bearer cgd_key")
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${DB_KEY}`)
+    expect(header(calls[0], "x-database-id")).toBeNull()
     expect(header(calls[0], "tenant_id")).toBeNull()
   })
 
   it("does not repeat a query on a 503, because it may change data", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ error: "service_unavailable", message: "Try again." }, { status: 503 }))
-    const db = new CogniCloudDatabase({ key: "cgd_key", fetch })
+    const db = data({ fetch })
     await expect(db.query("DELETE FROM orders")).rejects.toMatchObject({ status: 503 })
     expect(calls).toHaveLength(1)
   })
@@ -46,14 +58,14 @@ describe("CogniCloudDatabase", () => {
     const { fetch } = fakeFetch(
       Response.json({ code: "23505", error: "query_failed", message: "duplicate key" }, { status: 400 }),
     )
-    const error = await new CogniCloudDatabase({ key: "k", fetch }).query("INSERT").catch((caught: unknown) => caught)
+    const error = await data({ fetch }).query("INSERT").catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
     expect(error).toMatchObject({ status: 400, code: "query_failed", queryCode: "23505", message: "duplicate key" })
   })
 
   it("sends a transaction with empty params filled in", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ results: [result, result] }))
-    const results = await new CogniCloudDatabase({ key: "k", fetch }).transaction([
+    const results = await data({ fetch }).transaction([
       { sql: "UPDATE a SET b = 1" },
       { sql: "DELETE FROM a WHERE id = $1", params: [2] },
     ])
@@ -69,13 +81,13 @@ describe("CogniCloudDatabase", () => {
   it("lists tables and retries, because reading is safe", async () => {
     const tables = [{ name: "orders", columns: [{ name: "id", type: "integer", nullable: false }] }]
     const { fetch, calls } = fakeFetch(new Response(null, { status: 503 }), Response.json({ tables }))
-    expect(await new CogniCloudDatabase({ key: "k", fetch, maxRetries: 1 }).tables()).toEqual(tables)
+    expect(await data({ fetch, maxRetries: 1 }).tables()).toEqual(tables)
     expect(calls).toHaveLength(2)
   })
 
   it("builds a select with every filter and sends it when awaited", async () => {
     const { fetch, calls } = fakeFetch(Response.json(result))
-    const query = new CogniCloudDatabase({ key: "k", fetch })
+    const query = data({ fetch })
       .table("order items")
       .select("id", "email")
       .eq("a", 1)
@@ -122,13 +134,13 @@ describe("CogniCloudDatabase", () => {
 
   it("selects every column by default", async () => {
     const { fetch, calls } = fakeFetch(Response.json(result))
-    await new CogniCloudDatabase({ key: "k", fetch }).table("orders").select()
+    await data({ fetch }).table("orders").select()
     expect(body(calls[0])).toEqual({ columns: [], filters: [], order: [] })
   })
 
   it("inserts one row or many at once", async () => {
     const { fetch, calls } = fakeFetch(Response.json(result), Response.json(result))
-    const orders = new CogniCloudDatabase({ key: "k", fetch }).table("orders")
+    const orders = data({ fetch }).table("orders")
     await orders.insert({ email: "a" })
     await orders.insert([{ email: "b" }, { email: "c" }])
     expect(body(calls[0])).toEqual({ rows: [{ email: "a" }] })
@@ -137,7 +149,7 @@ describe("CogniCloudDatabase", () => {
 
   it("updates and deletes with filters, without retrying", async () => {
     const { fetch, calls } = fakeFetch(Response.json(result), Response.json({ error: "x", message: "y" }, { status: 503 }))
-    const orders = new CogniCloudDatabase({ key: "k", fetch }).table("orders")
+    const orders = data({ fetch }).table("orders")
     await orders.update({ total: 5 }).eq("id", 1)
     await expect(orders.delete().eq("id", 1)).rejects.toMatchObject({ status: 503 })
     expect(calls[0]?.url).toBe(`${base}/tables/orders/update`)
@@ -157,7 +169,7 @@ describe("CogniCloud.database", () => {
       Response.json(database),
       new Response(null, { status: 204 }),
     )
-    const cc = new CogniCloud({ token: "session", tenant: "acme", fetch, databaseBaseUrl: "https://db.test/v1/" })
+    const cc = new CogniCloud({ apiKey: KEY, fetch, databaseBaseUrl: "https://db.test/v1/" })
     expect((await cc.database.create("Orders")).id).toBe("db1")
     expect(await cc.database.list()).toEqual([database])
     expect((await cc.database.get("db1")).name).toBe("Orders")
@@ -169,14 +181,14 @@ describe("CogniCloud.database", () => {
       "DELETE https://db.test/v1/databases/db1",
     ])
     expect(body(calls[0])).toEqual({ name: "Orders" })
-    expect(header(calls[0], "authorization")).toBe("Bearer session")
-    expect(header(calls[0], "tenant_id")).toBe("acme")
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${KEY}`)
+    expect(header(calls[0], "tenant_id")).toBeNull()
   })
 
   it("runs SQL and lists tables as the owner", async () => {
     const tables = [{ name: "orders", columns: [] }]
     const { fetch, calls } = fakeFetch(Response.json(result), Response.json({ tables }))
-    const cc = new CogniCloud({ token: "session", tenant: "acme", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, fetch })
     const found = await cc.database.query("db1", "SELECT id FROM orders WHERE id = $1", ["a078e7865b1073c4d2c1eaa92a9b5507"])
     expect(found.rowCount).toBe(1)
     expect(await cc.database.tables("db1")).toEqual(tables)
@@ -185,30 +197,20 @@ describe("CogniCloud.database", () => {
       sql: "SELECT id FROM orders WHERE id = $1",
       params: ["a078e7865b1073c4d2c1eaa92a9b5507"],
     })
-    expect(header(calls[0], "authorization")).toBe("Bearer session")
+    expect(header(calls[0], "authorization")).toBe(`Bearer ${KEY}`)
     expect(calls[1]?.url).toBe(`${base}/databases/db1/tables`)
   })
 
   it("does not repeat an owner query, because it may change data", async () => {
     const { fetch, calls } = fakeFetch(new Response(null, { status: 503 }))
-    const cc = new CogniCloud({ token: "t", fetch })
+    const cc = new CogniCloud({ apiKey: KEY, fetch })
     await expect(cc.database.query("db1", "DELETE FROM orders")).rejects.toMatchObject({ status: 503 })
     expect(calls).toHaveLength(1)
   })
 
-  it("lists and revokes keys and pages through actions", async () => {
-    const { fetch, calls } = fakeFetch(
-      Response.json([]),
-      new Response(null, { status: 204 }),
-      Response.json({ items: [], nextCursor: null }),
-    )
-    const cc = new CogniCloud({ token: "t", fetch })
-    await cc.database.keys.list("db1")
-    await cc.database.keys.revoke("db1", "key1")
-    await cc.database.actions({ limit: 5, cursor: "abc" })
-    expect(calls[0]?.url).toBe(`${base}/databases/db1/keys`)
-    expect(calls[1]?.url).toBe(`${base}/databases/db1/keys/key1`)
-    expect(calls[1]?.init.method).toBe("DELETE")
-    expect(calls[2]?.url).toBe(`${base}/actions?limit=5&cursor=abc`)
+  it("pages through actions", async () => {
+    const { fetch, calls } = fakeFetch(Response.json({ items: [], nextCursor: null }))
+    await new CogniCloud({ apiKey: KEY, fetch }).database.actions({ limit: 5, cursor: "abc" })
+    expect(calls[0]?.url).toBe(`${base}/actions?limit=5&cursor=abc`)
   })
 })

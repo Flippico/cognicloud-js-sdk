@@ -5,6 +5,7 @@ import { MailApi } from "./mail.js"
 import { MarketplaceApi } from "./marketplace.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
+import { parseKey } from "./keys.js"
 import { streamEvents } from "./stream.js"
 import { WebBuilderApi } from "./web-builder.js"
 import type {
@@ -40,27 +41,27 @@ export type ClientOptions = {
 }
 
 export type EndpointClientOptions = ClientOptions & {
-  credential: string
+  /** An account key (`cc_acc_`) or an AI Gateway key (`cc_gw_`) from Settings → API keys. */
+  apiKey: string
 } & (
     | {
         /** The endpoint's invoke URL as CogniCloud issued it (`endpoint.url`). Takes precedence over `baseUrl`. */
         url: string
         endpointId?: never
-        tenant?: never
       }
     | {
+        /** The endpoint to call; the workspace comes from the key. */
         endpointId: string
-        /** The tenant the endpoint belongs to. Default `"cognicloud"`, the platform tenant. */
-        tenant?: string
         url?: never
       }
   )
 
 export type CogniCloudOptions = ClientOptions & {
-  /** The signed-in person's Amadeus session token, sent as `Authorization: Bearer`. */
-  token: string
-  /** The tenant (workspace) to manage, sent as the `tenant_id` header. Default `"cognicloud"`. */
-  tenant?: string
+  /**
+   * An account key (`cc_acc_`) for every product, or a product key (`cc_gw_`, `cc_db_`, `cc_br_`, `cc_ml_`, `cc_ag_`)
+   * for one. Create it in the dashboard under Settings → API keys. The key names its workspace.
+   */
+  apiKey: string
   /** The browser service's base. Default `https://cognicloud.dev/api/v1/browser`. */
   browserBaseUrl?: string
   /** The mail service's base. Default `https://cognicloud.dev/api/v1/mail`. */
@@ -74,8 +75,6 @@ export type CogniCloudOptions = ClientOptions & {
   /** The marketplace's base. Default `https://cognicloud.dev/api/v1/marketplace`. */
   marketplaceBaseUrl?: string
 }
-
-const defaultTenant = "cognicloud"
 
 /** How an invoke URL names its tenant: the tenant's name as UTF-8, in lowercase hex. */
 export function encodeTenant(tenant: string): string {
@@ -105,7 +104,7 @@ function httpConfig(options: ClientOptions): HttpConfig {
   }
 }
 
-/** Calls one AI Gateway endpoint with its own credential. */
+/** Calls one AI Gateway endpoint with an account or AI Gateway key, as the endpoint's owner. */
 export class EndpointClient {
   /** The address every invoke is sent to. */
   readonly url: string
@@ -113,11 +112,11 @@ export class EndpointClient {
   private readonly config: HttpConfig
 
   constructor(options: EndpointClientOptions) {
-    this.credential = options.credential
+    const { tenantHex } = parseKey(options.apiKey)
+    this.credential = options.apiKey
     this.config = httpConfig(options)
     this.url =
-      options.url ??
-      `${this.config.baseUrl.replace(/\/+$/, "")}/invoke/${encodeTenant(options.tenant ?? defaultTenant)}/${encodeURIComponent(options.endpointId)}`
+      options.url ?? `${this.config.baseUrl.replace(/\/+$/, "")}/invoke/${tenantHex}/${encodeURIComponent(options.endpointId)}`
   }
 
   /**
@@ -180,14 +179,14 @@ export class EndpointClient {
   }
 }
 
-/** Manages AI Gateway endpoints with the signed-in person's session. */
+/** Manages AI Gateway endpoints. */
 export class EndpointsApi {
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
-  constructor(config: HttpConfig, token: string, tenant: string = defaultTenant) {
+  constructor(config: HttpConfig, headers: Record<string, string>) {
     this.config = config
-    this.headers = { authorization: `Bearer ${token}`, tenant_id: tenant }
+    this.headers = headers
   }
 
   create(input: CreateEndpointInput): Promise<CreatedEndpoint> {
@@ -221,16 +220,6 @@ export class EndpointsApi {
     })
   }
 
-  /** Issues a new credential. The old one stops working at once. */
-  rotateCredential(id: string): Promise<{ secret: string }> {
-    return send(this.config, {
-      method: "POST",
-      path: `/endpoints/${encodeURIComponent(id)}/credential/rotate`,
-      headers: this.headers,
-      retry: false,
-    })
-  }
-
   usage(id: string): Promise<EndpointUsage> {
     return send(this.config, { method: "GET", path: `/endpoints/${encodeURIComponent(id)}/usage`, headers: this.headers })
   }
@@ -250,52 +239,7 @@ export class EndpointsApi {
   }
 }
 
-/** Manage CogniCloud resources: AI Gateway endpoints and browser sessions. */
-/** The browser product alone: a browser key from the dashboard is the only credential needed. */
-export type CogniCloudBrowserOptions = ClientOptions & {
-  /** A browser key from the dashboard (Browser → API keys). It names its workspace, so no tenant is sent. */
-  key: string
-  /** Point at another environment. Default `https://cognicloud.dev/api/v1/browser`. */
-  browserBaseUrl?: string
-}
-
-/** Browser sessions, profiles and countries with a browser key. No Amadeus token is needed. */
-export class CogniCloudBrowser {
-  readonly browser: BrowserApi
-
-  constructor(options: CogniCloudBrowserOptions) {
-    if (typeof options.key !== "string" || options.key.trim() === "") {
-      throw new CogniCloudError(
-        0,
-        "missing_key",
-        "A browser key is required. Create one in the dashboard under Browser → API keys.",
-      )
-    }
-    this.browser = new BrowserApi({ ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }, options.key)
-  }
-}
-
-export type CogniCloudDatabaseOptions = ClientOptions & {
-  /** A database key from the dashboard (Database → API keys). It names its database and workspace. */
-  key: string
-  /** Point at another environment. Default `https://cognicloud.dev/api/v1/database`. */
-  databaseBaseUrl?: string
-}
-
-/** Queries one database with its key. No Amadeus token is needed. */
-export class CogniCloudDatabase extends DatabaseDataApi {
-  constructor(options: CogniCloudDatabaseOptions) {
-    if (typeof options.key !== "string" || options.key.trim() === "") {
-      throw new CogniCloudError(
-        0,
-        "missing_key",
-        "A database key is required. Create one in the dashboard under Database → API keys.",
-      )
-    }
-    super({ ...httpConfig(options), baseUrl: options.databaseBaseUrl ?? defaults.databaseBaseUrl }, options.key)
-  }
-}
-
+/** Every CogniCloud product with one API key. */
 export class CogniCloud {
   readonly endpoints: EndpointsApi
   readonly browser: BrowserApi
@@ -306,29 +250,27 @@ export class CogniCloud {
   readonly skills: SkillsApi
   readonly runs: RunsApi
   readonly marketplace: MarketplaceApi
+  private readonly options: CogniCloudOptions
 
   constructor(options: CogniCloudOptions) {
-    if (typeof options.token !== "string" || options.token.trim() === "") {
-      throw new CogniCloudError(
-        0,
-        "missing_token",
-        "A token is required: pass the signed-in person's token, or a browser key for browser calls.",
-      )
-    }
-    this.endpoints = new EndpointsApi(httpConfig(options), options.token, options.tenant)
-    const browserConfig = { ...httpConfig(options), baseUrl: options.browserBaseUrl ?? defaults.browserBaseUrl }
-    this.browser = new BrowserApi(browserConfig, options.token, options.tenant ?? defaultTenant)
-    const mailConfig = { ...httpConfig(options), baseUrl: options.mailBaseUrl ?? defaults.mailBaseUrl }
-    const headers = { authorization: `Bearer ${options.token}`, tenant_id: options.tenant ?? defaultTenant }
-    this.mail = new MailApi(mailConfig, headers)
-    this.database = new DatabaseApi({ ...httpConfig(options), baseUrl: options.databaseBaseUrl ?? defaults.databaseBaseUrl }, headers)
-    this.webBuilder = new WebBuilderApi({ ...httpConfig(options), baseUrl: options.webBuilderBaseUrl ?? defaults.webBuilderBaseUrl }, headers)
-    const agentHeaders =
-      options.tenant === undefined && /^(ccag|cga)_/.test(options.token) ? { authorization: `Bearer ${options.token}` } : headers
-    const agentsConfig = { ...httpConfig(options), baseUrl: options.agentsBaseUrl ?? defaults.agentsBaseUrl }
-    this.agents = new AgentsApi(agentsConfig, agentHeaders)
-    this.skills = new SkillsApi(agentsConfig, agentHeaders)
-    this.runs = new RunsApi(agentsConfig, agentHeaders)
-    this.marketplace = new MarketplaceApi({ ...httpConfig(options), baseUrl: options.marketplaceBaseUrl ?? defaults.marketplaceBaseUrl }, agentHeaders)
+    parseKey(options.apiKey)
+    this.options = options
+    const headers = { authorization: `Bearer ${options.apiKey}` }
+    const config = (baseUrl: string | undefined, fallback: string) => ({ ...httpConfig(options), baseUrl: baseUrl ?? fallback })
+    this.endpoints = new EndpointsApi(httpConfig(options), headers)
+    this.browser = new BrowserApi(config(options.browserBaseUrl, defaults.browserBaseUrl), headers)
+    this.mail = new MailApi(config(options.mailBaseUrl, defaults.mailBaseUrl), headers)
+    this.database = new DatabaseApi(config(options.databaseBaseUrl, defaults.databaseBaseUrl), headers)
+    this.webBuilder = new WebBuilderApi(config(options.webBuilderBaseUrl, defaults.webBuilderBaseUrl), headers)
+    const agents = config(options.agentsBaseUrl, defaults.agentsBaseUrl)
+    this.agents = new AgentsApi(agents, headers)
+    this.skills = new SkillsApi(agents, headers)
+    this.runs = new RunsApi(agents, headers)
+    this.marketplace = new MarketplaceApi(config(options.marketplaceBaseUrl, defaults.marketplaceBaseUrl), headers)
+  }
+
+  /** Calls one AI Gateway endpoint with this key, as its owner. */
+  endpoint(endpointId: string): EndpointClient {
+    return new EndpointClient({ ...this.options, endpointId })
   }
 }

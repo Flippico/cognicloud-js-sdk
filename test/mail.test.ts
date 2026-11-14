@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { CogniCloud } from "../src/index.js"
 
+const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
+
 type Call = { url: string; init: RequestInit }
 
 function fakeFetch(...responses: Response[]) {
@@ -28,14 +30,14 @@ describe("CogniCloud.mail", () => {
     const { fetch, calls } = fakeFetch(
       Response.json({ mailbox, password: "Vf9!mQ2xTr7#pL4wNz8KbHd1" }, { status: 201 }),
     )
-    const client = new CogniCloud({ token: "session-token", tenant: "acme", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     const created = await client.mail.create("support")
     expect(created.password).toBe("Vf9!mQ2xTr7#pL4wNz8KbHd1")
     expect(calls[0]?.url).toBe("https://cognicloud.dev/api/v1/mail/mailboxes")
     expect(calls[0]?.init.method).toBe("POST")
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ localPart: "support" })
-    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe("Bearer session-token")
-    expect(new Headers(calls[0]?.init.headers).get("tenant_id")).toBe("acme")
+    expect(new Headers(calls[0]?.init.headers).get("authorization")).toBe(`Bearer ${KEY}`)
+    expect(new Headers(calls[0]?.init.headers).get("tenant_id")).toBeNull()
   })
 
   it("lists with paging and reads connection settings", async () => {
@@ -47,7 +49,7 @@ describe("CogniCloud.mail", () => {
         smtp: { host: "mail.example.com", port: 465, security: "ssl" },
       }),
     )
-    const client = new CogniCloud({ token: "t", fetch, mailBaseUrl: "https://mail.test/api/v1/mail" })
+    const client = new CogniCloud({ apiKey: KEY, fetch, mailBaseUrl: "https://mail.test/api/v1/mail" })
     expect((await client.mail.list({ limit: 5 })).total).toBe(1)
     expect(calls[0]?.url).toBe("https://mail.test/api/v1/mail/mailboxes?limit=5")
     expect((await client.mail.connectionSettings()).imap.port).toBe(993)
@@ -55,7 +57,7 @@ describe("CogniCloud.mail", () => {
 
   it("deletes and rotates without retrying", async () => {
     const { fetch, calls } = fakeFetch(new Response(null, { status: 204 }), Response.json({ password: "new-password-1!" }))
-    const client = new CogniCloud({ token: "t", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     await client.mail.delete(mailbox.id)
     expect((await client.mail.rotatePassword(mailbox.id)).password).toBe("new-password-1!")
     expect(calls[0]?.url).toBe(`https://cognicloud.dev/api/v1/mail/mailboxes/${mailbox.id}`)
@@ -83,7 +85,7 @@ describe("CogniCloud.mail.domains", () => {
       Response.json({ mailbox: { ...mailbox, address: "ceo@yourcompany.com" }, password: "pw" }, { status: 201 }),
       new Response(null, { status: 204 }),
     )
-    const client = new CogniCloud({ token: "session-token", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     expect((await client.mail.domains.add("yourcompany.com")).status).toBe("pending")
     expect((await client.mail.domains.verify("d1")).status).toBe("verified")
     expect((await client.mail.domains.list()).items).toHaveLength(1)

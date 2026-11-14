@@ -9,7 +9,7 @@ describe("files and profiles", () => {
       calls.push({ url: String(input), init: init ?? {} })
       return answers.shift()!
     }) as typeof globalThis.fetch
-    const browser = new Client({ token: "t", fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser
+    const browser = new Client({ apiKey: KEY, fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser
     const bytes = new Uint8Array([1, 2, 3])
     expect((await browser.sessions.setStepRunFile("s1", "r1", "my cv.pdf", bytes)).fileName).toBe("my cv.pdf")
     expect(calls[0]?.url).toBe("https://b.test/v1/browser/sessions/s1/step-runs/r1/file?name=my%20cv.pdf")
@@ -27,7 +27,7 @@ describe("step runs", () => {
       calls.push({ url: String(input), init: init ?? {} })
       return Response.json(run)
     }) as typeof globalThis.fetch
-    const sessions = new Client({ token: "t", fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser.sessions
+    const sessions = new Client({ apiKey: KEY, fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser.sessions
     await sessions.createStepRun("s1", { task: "Go", endpointId: "e1" })
     await sessions.getStepRun("s1", "r1")
     await sessions.runStep("s1", "r1", { credential: "c", timeoutSeconds: 60 })
@@ -63,7 +63,7 @@ describe("page control and agent runs", () => {
       calls.push({ url: String(input), init: init ?? {} })
       return Response.json(responses.shift())
     }) as typeof globalThis.fetch
-    const sessions = new Client({ token: "t", fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser.sessions
+    const sessions = new Client({ apiKey: KEY, fetch, browserBaseUrl: "https://b.test/v1/browser" }).browser.sessions
     await sessions.readPage("s1", { screenshot: true })
     await sessions.act("s1", { type: "click", index: 3 })
     await sessions.startAgentRun("s1", { task: "Find it", endpointId: "e1", credential: "c" })
@@ -81,6 +81,8 @@ describe("page control and agent runs", () => {
   })
 })
 import { CogniCloud, CogniCloudError } from "../src/index.js"
+
+const KEY = `cc_acc_636f676e69636c6f7564_${"a".repeat(64)}`
 
 type Call = { url: string; init: RequestInit }
 
@@ -113,14 +115,14 @@ const session = {
 describe("BrowserApi", () => {
   it("starts a session at the browser base with the session headers", async () => {
     const { fetch, calls } = fakeFetch(new Response(JSON.stringify(session), { status: 201 }))
-    const client = new CogniCloud({ token: "amadeus-token", tenant: "acme", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     const created = await client.browser.sessions.create({ timeoutMinutes: 15 })
     expect(created).toEqual(session)
     expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/browser/sessions")
     expect(calls[0].init.method).toBe("POST")
     const headers = calls[0].init.headers as Record<string, string>
-    expect(headers.authorization).toBe("Bearer amadeus-token")
-    expect(headers.tenant_id).toBe("acme")
+    expect(headers.authorization).toBe(`Bearer ${KEY}`)
+    expect(headers.tenant_id).toBeUndefined()
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ timeoutMinutes: 15 })
   })
 
@@ -131,7 +133,7 @@ describe("BrowserApi", () => {
       Response.json(session),
       Response.json(stopped)
     )
-    const browser = new CogniCloud({ token: "t", fetch }).browser
+    const browser = new CogniCloud({ apiKey: KEY, fetch }).browser
     expect((await browser.sessions.list()).concurrency).toEqual({ active: 1, limit: 2 })
     expect((await browser.sessions.get("b903c5d0")).status).toBe("active")
     expect((await browser.sessions.stop("b903c5d0")).status).toBe("stopped")
@@ -145,7 +147,7 @@ describe("BrowserApi", () => {
 
   it("uses a browser base URL when one is given", async () => {
     const { fetch, calls } = fakeFetch(Response.json({ items: [], concurrency: { active: 0, limit: 2 } }))
-    const browser = new CogniCloud({ token: "t", browserBaseUrl: "http://localhost:8095/v1/browser", fetch }).browser
+    const browser = new CogniCloud({ apiKey: KEY, browserBaseUrl: "http://localhost:8095/v1/browser", fetch }).browser
     await browser.sessions.list()
     expect(calls[0].url).toBe("http://localhost:8095/v1/browser/sessions")
   })
@@ -154,7 +156,7 @@ describe("BrowserApi", () => {
     const { fetch } = fakeFetch(
       Response.json({ error: "concurrency_limit", message: "Stop a session before starting another." }, { status: 429 })
     )
-    const browser = new CogniCloud({ token: "t", fetch }).browser
+    const browser = new CogniCloud({ apiKey: KEY, fetch }).browser
     const error = await browser.sessions.create().catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(CogniCloudError)
     expect((error as CogniCloudError).code).toBe("concurrency_limit")
@@ -173,7 +175,7 @@ describe("BrowserApi", () => {
       new Response(JSON.stringify(profile), { status: 201 }),
       new Response(JSON.stringify({ ...session, profileId: profile.id }), { status: 201 }),
     )
-    const client = new CogniCloud({ token: "amadeus-token", tenant: "acme", fetch })
+    const client = new CogniCloud({ apiKey: KEY, fetch })
     expect(await client.browser.sessions.saveProfile("b903c5d0", "shop login")).toEqual(profile)
     expect(calls[0].url).toBe("https://cognicloud.dev/api/v1/browser/sessions/b903c5d0/profile")
     expect(calls[0].init.method).toBe("POST")
@@ -184,7 +186,7 @@ describe("BrowserApi", () => {
 
   it("lists countries and profiles", async () => {
     const { fetch, calls } = fakeFetch(Response.json([]), Response.json([]))
-    const browser = new CogniCloud({ token: "t", fetch }).browser
+    const browser = new CogniCloud({ apiKey: KEY, fetch }).browser
     expect(await browser.countries()).toEqual([])
     expect(await browser.profiles()).toEqual([])
     expect(calls.map((call) => call.url)).toEqual([

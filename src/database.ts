@@ -3,7 +3,6 @@ import type {
   DatabaseActionList,
   DatabaseActionListOptions,
   DatabaseFilter,
-  DatabaseKey,
   DatabaseList,
   DatabaseOrder,
   DatabaseRow,
@@ -143,14 +142,17 @@ export class DatabaseTableApi<T extends DatabaseRow = DatabaseRow> {
   }
 }
 
-/** Queries one database with its key. */
+/**
+ * Queries one database: the one a database key is limited to, or, with an account key or a key for every database,
+ * the database named by `databaseId` (sent as `x-database-id`).
+ */
 export class DatabaseDataApi {
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
 
-  constructor(config: HttpConfig, key: string) {
+  constructor(config: HttpConfig, headers: Record<string, string>, databaseId?: string) {
     this.config = config
-    this.headers = { authorization: `Bearer ${key}` }
+    this.headers = databaseId === undefined ? headers : { ...headers, "x-database-id": databaseId }
   }
 
   /**
@@ -184,42 +186,19 @@ export class DatabaseDataApi {
   }
 }
 
-/** A database's keys. Keys are created in the dashboard and shown there once. */
-export class DatabaseKeysApi {
-  private readonly config: HttpConfig
-  private readonly headers: Record<string, string>
-
-  constructor(config: HttpConfig, headers: Record<string, string>) {
-    this.config = config
-    this.headers = headers
-  }
-
-  /** Active keys, newest first. */
-  list(databaseId: string): Promise<DatabaseKey[]> {
-    return send(this.config, { method: "GET", path: `/databases/${encodeURIComponent(databaseId)}/keys`, headers: this.headers })
-  }
-
-  /** The key stops working on its next request. */
-  revoke(databaseId: string, keyId: string): Promise<void> {
-    return send(this.config, {
-      method: "DELETE",
-      path: `/databases/${encodeURIComponent(databaseId)}/keys/${encodeURIComponent(keyId)}`,
-      headers: this.headers,
-      retry: false,
-    })
-  }
-}
-
-/** Creates and removes hosted Postgres databases. Needs a signed-in person's token; a key is refused. */
+/** Creates, lists and removes hosted Postgres databases, and queries them with `data`. */
 export class DatabaseApi {
   private readonly config: HttpConfig
   private readonly headers: Record<string, string>
-  readonly keys: DatabaseKeysApi
 
   constructor(config: HttpConfig, headers: Record<string, string>) {
     this.config = config
     this.headers = headers
-    this.keys = new DatabaseKeysApi(config, headers)
+  }
+
+  /** SQL and the query builder. Pass `databaseId` with an account key; a key for one database needs none. */
+  data(databaseId?: string): DatabaseDataApi {
+    return new DatabaseDataApi(this.config, this.headers, databaseId)
   }
 
   /** Newest first. */
