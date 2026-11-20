@@ -1,7 +1,7 @@
 import { CogniCloudError } from "./errors.js"
 
 /** What a key reaches: the whole workspace, or one product. */
-export type KeyKind = "account" | "gateway" | "database" | "browser" | "mail" | "agents" | "vault"
+export type KeyKind = "account" | "gateway" | "database" | "browser" | "mail" | "agents" | "vault" | "storage"
 
 const prefixes: Record<string, KeyKind> = {
   cc_acc_: "account",
@@ -11,6 +11,7 @@ const prefixes: Record<string, KeyKind> = {
   cc_ml_: "mail",
   cc_ag_: "agents",
   cc_vt_: "vault",
+  cc_st_: "storage",
 }
 
 const retired = ["cc_live_", "ccag_", "cga_", "cgb_", "cgd_", "cgm_", "cgv_"]
@@ -56,6 +57,7 @@ const productLabels: Record<ProductName, string> = {
   mail: "Mail",
   agents: "Agents",
   vault: "Vault",
+  storage: "Storage",
 }
 
 /** Checks the account key and every product key: right kinds, one workspace. Returns the workspace. */

@@ -6,6 +6,7 @@ import { MarketplaceApi } from "./marketplace.js"
 import { CogniCloudError } from "./errors.js"
 import { open, send, type HttpConfig } from "./http.js"
 import { checkKeys, pairHeaders, type ProductKeys, type ProductName } from "./keys.js"
+import { StorageApi } from "./storage.js"
 import { streamEvents } from "./stream.js"
 import { WebBuilderApi } from "./web-builder.js"
 import type {
@@ -63,7 +64,7 @@ export type CogniCloudOptions = ClientOptions & {
   accountKey: string
   /**
    * A product key for each product you call: `gateway` (`cc_gw_`), `database` (`cc_db_`), `browser` (`cc_br_`),
-   * `mail` (`cc_ml_`), `agents` (`cc_ag_`). Each call sends its product key with the account key.
+   * `mail` (`cc_ml_`), `agents` (`cc_ag_`), `storage` (`cc_st_`). Each call sends its product key with the account key.
    */
   productKeys?: ProductKeys
   /** The browser service's base. Default `https://cognicloud.dev/api/v1/browser`. */
@@ -78,6 +79,8 @@ export type CogniCloudOptions = ClientOptions & {
   agentsBaseUrl?: string
   /** The marketplace's base. Default `https://cognicloud.dev/api/v1/marketplace`. */
   marketplaceBaseUrl?: string
+  /** The storage service's base, for buckets and objects. Default `https://cognicloud.dev/api/v1/storage`. */
+  storageBaseUrl?: string
 }
 
 /** How an invoke URL names its tenant: the tenant's name as UTF-8, in lowercase hex. */
@@ -93,6 +96,7 @@ const defaults = {
   webBuilderBaseUrl: "https://cognicloud.dev/api/v1/web-builder",
   agentsBaseUrl: "https://cognicloud.dev/api/v1/agents",
   marketplaceBaseUrl: "https://cognicloud.dev/api/v1/marketplace",
+  storageBaseUrl: "https://cognicloud.dev/api/v1/storage",
   locale: "en",
   timeoutMs: 30_000,
   maxRetries: 2,
@@ -289,6 +293,11 @@ export class CogniCloud {
   get database(): DatabaseApi {
     const config = this.config(this.options.databaseBaseUrl, defaults.databaseBaseUrl)
     return new DatabaseApi(config, this.headers("database"))
+  }
+
+  /** Buckets and objects. Needs `productKeys.storage`. */
+  get storage(): StorageApi {
+    return new StorageApi(this.config(this.options.storageBaseUrl, defaults.storageBaseUrl), this.headers("storage"))
   }
 
   /** Needs `productKeys.agents`. */

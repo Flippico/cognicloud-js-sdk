@@ -20,6 +20,8 @@ export type RequestOptions = {
   raw?: { body: BodyInit; contentType: string }
   /** Calls that bill or change state are sent once; a retry could repeat them. */
   retry?: boolean
+  /** Read the answer as bytes, not JSON. */
+  binary?: boolean
 }
 
 const retryableStatuses = new Set([429, 500, 502, 503, 504])
@@ -79,7 +81,7 @@ export async function send<T>(config: HttpConfig, options: RequestOptions): Prom
       response = await config.fetch(url, {
         method: options.method,
         headers: {
-          accept: "application/json",
+          accept: options.binary ? "*/*" : "application/json",
           "accept-language": config.locale,
           ...(options.raw ? { "content-type": options.raw.contentType } : options.body === undefined ? {} : { "content-type": "application/json" }),
           ...options.headers,
@@ -101,7 +103,14 @@ export async function send<T>(config: HttpConfig, options: RequestOptions): Prom
     }
 
     if (response.ok) {
-      return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
+      if (options.binary) {
+        return new Uint8Array(await response.arrayBuffer()) as T
+      }
+      if (response.status === 204) {
+        return undefined as T
+      }
+      const text = await response.text()
+      return (text === "" ? undefined : JSON.parse(text)) as T
     }
     if (retryableStatuses.has(response.status) && attempt < retries) {
       await sleep(250 * 2 ** attempt)

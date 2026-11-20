@@ -17,7 +17,7 @@ ESM, typed, uses the platform `fetch`, no runtime dependencies.
 Create keys in the dashboard under **Settings → API keys**. Each is shown once. You need two kinds, and every call uses both:
 
 - Your **account key** (`cc_acc_...`): who you are and which workspace. Required on every call; on its own it does nothing.
-- A **product key** for each product you call: `cc_gw_` AI Gateway, `cc_db_` Database, `cc_br_` Browser, `cc_ml_` Mail, `cc_ag_` Agents. It can be narrowed to one resource, such as one model, database or agent.
+- A **product key** for each product you call: `cc_gw_` AI Gateway, `cc_db_` Database, `cc_br_` Browser, `cc_ml_` Mail, `cc_ag_` Agents, `cc_st_` Storage. It can be narrowed to one resource, such as one model, database or agent.
 
 Each call sends the product key as the Bearer token and the account key in `X-CogniCloud-Account-Key`. Both must be from the same person and workspace; the services refuse a product key alone (`401`) and an account key alone (`403`). The keys name their workspace, so there is no `tenant` option. Keys cannot be created through the SDK or the API.
 
@@ -257,6 +257,36 @@ await db.query("INSERT INTO members (id, user_id) VALUES ($1, $2)", [id, userId]
 
 `cc.database.query(database.id, sql, params)` and `cc.database.tables(database.id)` also work without `data`. `cc.database.list`, `get` and `delete` manage databases, and `cc.database.actions` lists what was done.
 
+## Storage
+
+Buckets and objects; needs `productKeys.storage` (`cc_st_`).
+
+```ts
+await cc.storage.buckets.create({ name: "assets", description: "Product photos" })
+
+await cc.storage.objects.upload("assets", "shoes/red.jpg", imageBytes, { contentType: "image/jpeg" })
+const bytes = await cc.storage.objects.download("assets", "shoes/red.jpg")
+const firstKilobyte = await cc.storage.objects.download("assets", "shoes/red.jpg", { range: "bytes=0-1023" })
+const info = await cc.storage.objects.metadata("assets", "shoes/red.jpg") // size, contentType, etag, lastModified
+
+const { folders, objects, nextCursor } = await cc.storage.objects.list("assets", { prefix: "shoes/", limit: 50 })
+for await (const page of cc.storage.objects.pages("assets")) {
+  for (const object of page.objects) console.log(object.key, object.size)
+}
+
+await cc.storage.folders.create("assets", "invoices/2026/")
+await cc.storage.objects.delete("assets", "shoes/red.jpg")
+await cc.storage.buckets.update("assets", { visibility: "public_read", description: null })
+await cc.storage.buckets.delete("assets", { force: true }) // without force, a bucket with objects is refused
+```
+
+- `buckets.list`, `get` and `update` manage buckets. Visibility is `private` or `public_read`; `description: null` clears the description.
+- Deleting a bucket that still holds objects throws `CogniCloudError` with `status` 409 and `code` `conflict`. `{ force: true }` deletes the bucket with its objects.
+- Object keys may contain slashes; each segment is URL-encoded for you.
+- `objects.list` returns one page: `folders` (grouped by `delimiter`, `/` by default) and `objects`. Pass `nextCursor` back as `cursor` for the next page. `objects.pages` does that for you, one request per page; stop early with `break`.
+- `download` returns a `Uint8Array` held in memory. Uploads are at most 100 MB. `timeoutMs` covers the whole transfer, so raise it for large files.
+- Writes (`create`, `update`, `delete`, `upload`, `folders.create`) are never retried; reads and downloads are.
+
 ## Web builder
 
 Build a React application and host it at `https://<subdomain>.cognicloud.dev`. Leave out `repoUrl` to start from a Vite + React starter. Each person can have 3 applications.
@@ -367,7 +397,7 @@ try {
 | `maxRetries` | `2` | For `429` and `5xx`, on calls that are safe to repeat. |
 | `fetch` | `globalThis.fetch` | Supply your own, e.g. for proxies or tests. |
 
-The `CogniCloud` client also takes `accountKey` (required), `productKeys`, `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`), `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`), `agentsBaseUrl` (default `https://cognicloud.dev/api/v1/agents`) and `marketplaceBaseUrl` (default `https://cognicloud.dev/api/v1/marketplace`).
+The `CogniCloud` client also takes `accountKey` (required), `productKeys`, `browserBaseUrl` (default `https://cognicloud.dev/api/v1/browser`) `mailBaseUrl` (default `https://cognicloud.dev/api/v1/mail`), `databaseBaseUrl` (default `https://cognicloud.dev/api/v1/database`), `webBuilderBaseUrl` (default `https://cognicloud.dev/api/v1/web-builder`), `agentsBaseUrl` (default `https://cognicloud.dev/api/v1/agents`), `marketplaceBaseUrl` (default `https://cognicloud.dev/api/v1/marketplace`) and `storageBaseUrl` (default `https://cognicloud.dev/api/v1/storage`).
 
 ## Migrating from 1.x
 

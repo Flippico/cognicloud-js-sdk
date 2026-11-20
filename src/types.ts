@@ -522,3 +522,77 @@ export type TemplateListOptions = {
   /** `research`, `monitoring`, `operations` or `data`. */
   category?: string
 }
+
+export type StorageVisibility = "private" | "public_read"
+
+export type StorageBucket = {
+  id: string
+  name: string
+  visibility: StorageVisibility
+  description: string | null
+  /** Approximate; updated after each write. */
+  objectCount: number
+  totalSize: number
+  createdAt: string
+}
+
+export type StorageBucketList = {
+  buckets: StorageBucket[]
+}
+
+export type CreateStorageBucketInput = {
+  /** Unique among your buckets. */
+  name: string
+  description?: string
+}
+
+export type UpdateStorageBucketInput = {
+  visibility?: StorageVisibility
+  /** `null` clears the description. */
+  description?: string | null
+}
+
+export type StorageDeleteOptions = {
+  /** Delete the bucket with its objects. Without it, a bucket that still holds objects is refused with `409`. */
+  force?: boolean
+}
+
+export type StorageObject = {
+  key: string
+  size: number
+  etag: string | null
+  lastModified: string
+}
+
+export type StorageObjectMetadata = StorageObject & {
+  contentType: string
+}
+
+export type StorageObjectPage = {
+  /** Folder prefixes under the listed prefix, when a delimiter groups keys. */
+  folders: string[]
+  objects: StorageObject[]
+  /** Pass as `cursor` for the next page. `null` on the last page. */
+  nextCursor: string | null
+}
+
+export type StorageObjectListOptions = {
+  /** Only keys under this prefix. */
+  prefix?: string
+  /** Groups keys into `folders`. Default `/`; `""` lists every key flat. */
+  delimiter?: string
+  /** The `nextCursor` of the previous page. */
+  cursor?: string
+  /** Entries per page, 1 to 1000. Default 100. */
+  limit?: number
+}
+
+export type StorageUploadOptions = {
+  /** Default `application/octet-stream`. */
+  contentType?: string
+}
+
+export type StorageDownloadOptions = {
+  /** An HTTP `Range` value such as `bytes=0-1023`, `bytes=1024-` or `bytes=-500`. The answer is then the requested part. */
+  range?: string
+}

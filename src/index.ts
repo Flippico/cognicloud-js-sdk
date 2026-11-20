@@ -18,6 +18,7 @@ export type {
 export { DatabaseApi, DatabaseDataApi, DatabaseSelectQuery, DatabaseTableApi } from "./database.js"
 export { MailApi, MailDomainsApi } from "./mail.js"
 export { MarketplaceApi } from "./marketplace.js"
+export { StorageApi, StorageBucketsApi, StorageFoldersApi, StorageObjectsApi } from "./storage.js"
 export { WebBuilderApi } from "./web-builder.js"
 export type {
   Application,

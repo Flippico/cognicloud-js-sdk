@@ -1,6 +1,22 @@
 # Changelog
 
-## [2.0.0] - Unreleased
+## [2.1.0] - 2026-11-20
+
+### Added
+- Storage: `cc.storage` manages buckets and objects. Needs `productKeys.storage` (`cc_st_`, KeyKind `storage`).
+- `cc.storage.buckets`: `list`, `create({ name, description? })`, `get`, `update(name, { visibility?, description? })` and `delete(name, { force? })`. A non-empty bucket is refused with `409` (`conflict`) unless `force` is true.
+- `cc.storage.objects`: `list(bucket, { prefix?, delimiter?, cursor?, limit? })` returns one page of `folders` and `objects`; `pages(bucket, options)` is an async iterator over every page; `upload(bucket, key, body, { contentType? })` takes a `Uint8Array`, `ArrayBuffer` or `Blob`; `download(bucket, key, { range? })` returns the bytes, or the requested part with a `Range` value; `metadata(bucket, key)` and `delete(bucket, key)`.
+- `cc.storage.folders.create(bucket, prefix)`.
+- `storageBaseUrl` option, default `https://cognicloud.dev/api/v1/storage`.
+- Types: `StorageBucket`, `StorageObject`, `StorageObjectMetadata`, `StorageObjectPage` and the input and option types.
+- Each object key is URL-encoded per path segment; the slashes between segments are kept.
+- Invalid keys are refused before any request with `CogniCloudError` `code` `invalid_key` (`status` 0): a key or folder prefix that is empty, starts with `/`, has an empty, `.` or `..` segment (except a trailing `/`), or has a control character. `upload`, `download`, `metadata`, `delete`, `folders.create`, and the `prefix` of `objects.list` and `pages` are checked. A `..` segment would otherwise be rewritten by the URL parser, so `x/../y` would reach `y`.
+- Needs storage service 0.2.0, which accepts the paired account and `cc_st_` keys.
+
+### Changed
+- Every product: a successful response with an empty body (for example `201` with no content) resolves to `undefined`. Before, it threw a parse error.
+
+## [2.0.0] - 2026-11-14
 
 ### Breaking
 - An account key is required and works in a pair with a product key. `new CogniCloud({ accountKey, productKeys: { gateway, database, browser, mail, agents } })` replaces `apiKey`. Each call sends its product key as the Bearer token and the account key in `X-CogniCloud-Account-Key`; the services refuse a product key alone (`401`) and an account key alone (`403`).

@@ -8,5 +8,6 @@ export const PRODUCT_KEYS = {
   browser: key("cc_br_", "3"),
   mail: key("cc_ml_", "4"),
   agents: key("cc_ag_", "5"),
+  storage: key("cc_st_", "6"),
 }
 export const KEYS = { accountKey: KEY, productKeys: PRODUCT_KEYS }
